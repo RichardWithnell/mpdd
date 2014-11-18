@@ -1,0 +1,6 @@
+- Packet Updates are being received.
+  - Ensure IP rules and routes are added for remote links.
+
+Virtual Interface Issue
+  - The virtual interface broadcast is 0.0.0.0
+  

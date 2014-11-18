@@ -1,0 +1,115 @@
+/*
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+    Author: Richard Withnell
+    github.com/richardwithnell
+*/
+
+#ifndef MPD_NETWORK
+#define MPD_NETWORK
+
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include "link_monitor.h"
+#include "interface.h"
+#include "list.h"
+#include "queue.h"
+
+#define DISS_MODE_MESH 0x00
+#define DISS_MODE_TREE 0x01
+
+#define MPD_BROADCAST_PORT 12344
+#define MPD_MULTICAST_PORT 12346
+#define MPD_UNICAST_PORT 12347
+
+#define MPD_HDR_REQUEST 0x00
+#define MPD_HDR_UPDATE 0x01
+
+//#define NET_MP_MODE_BACKUP 0x03
+//#define NET_MP_MODE_HANDOVER 0x02
+//#define NET_MP_MODE_OFF 0x00
+//#define NET_MP_MODE_ON 0x01
+
+#define SUCCESS 0x00
+#define FAILURE -0x01
+
+#define ENTRY_TYPE_DEL 0x00
+#define ENTRY_TYPE_ADD 0x01
+
+struct mpdentry {
+    uint32_t address;
+    uint32_t netmask;
+	uint32_t gateway;
+	uint32_t ext_ip;
+	uint8_t depth;
+    uint8_t type;
+} __attribute__((__packed__));
+
+struct mpdhdr {
+    uint8_t type;
+    uint8_t num;
+} __attribute__((__packed__));
+
+struct mpdpacket {
+    struct mpdhdr *header;
+    struct mpdentry *entry;
+} __attribute__((__packed__));
+
+struct send_queue {
+    struct queue receive_queue;
+    int flag;
+    int request_flag;
+    struct queue request_queue;
+    List *iff_list;
+    List *virt_list;
+    List *old_virt_list;
+    struct cache_monitor *mon_data;
+    pthread_mutex_t flag_lock;
+    pthread_mutex_t request_flag_lock;
+    pthread_mutex_t iff_list_lock;
+    pthread_mutex_t virt_list_lock;
+
+    int running;
+};
+
+struct network_update {
+    struct sockaddr_in addr;
+    struct mpdpacket pkt;
+};
+
+void* recv_broadcast(struct send_queue *squeue);
+
+int serialize_packet(struct mpdpacket *pkt, unsigned char** buffer);
+int deserialize_packet(unsigned char* buffer, struct mpdpacket **pkt);
+
+int create_update_packet(struct physical_interface *iff, struct mpdpacket** packet);
+int create_request_packet(struct mpdpacket **packet);
+
+void print_packet(struct mpdpacket *pkt);
+int do_broadcast(struct physical_interface *i,
+  int sock,
+  unsigned char* buffer,
+  int len);
+int send_update_broadcast(List *iff_list, int sock);
+int send_request_broadcast(struct physical_interface *iff, int sock);
+
+
+int create_socket(struct physical_interface *i);
+
+#endif
+
+/* end file: network.h */
