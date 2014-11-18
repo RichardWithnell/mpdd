@@ -1,3 +1,7 @@
+#
+# Should probably move to autoconf soon
+#
+
 LIB_PATH = /usr/lib/
 INC_PATH = /usr/include/libnl3
 LDFLAGS = -lnl-3 -lrt -lnl-route-3
@@ -66,10 +70,8 @@ $(BUILD_PATH)queue.o: $(SRC_PATH)queue.c $(SRC_PATH)queue.h
 $(BUILD_PATH)list.o: $(SRC_PATH)list.c $(SRC_PATH)list.h
 	$(CC) $(CFLAGS) -c $(SRC_PATH)list.c -o $(BUILD_PATH)list.o
 
-clang:
-	clang -fsyntax-only src/* -I$(INC_PATH) $(LDFLAGS)
-
 clean:
 	@echo "Cleaning..."
 	- rm $(BUILD_PATH)* $(BIN_PATH)*
+
 
