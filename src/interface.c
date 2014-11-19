@@ -345,8 +345,9 @@ add_addr (
     if(local){
         for(i = 0; i < list_size(iff); i++){
             temp_phys = (struct physical_interface*)(list_get(iff, i))->data;
-            print_debug("\tComparing %s and %s \n",
-                ip_to_str(temp_phys->address),
+            print_debug("\tComparing %s and ",
+                ip_to_str(temp_phys->address));
+            print_debug("%s\n"
                 ip_to_str(*(uint32_t*)
                     nl_addr_get_binary_addr((struct nl_addr *)local)));
 
@@ -361,9 +362,10 @@ add_addr (
         for(i = 0; i < list_size(virt); i++) {
             temp_virt = (struct virtual_interface*)(list_get(virt, i))->data;
 
-            print_debug("\tComparing %s and %s ", ip_to_str(temp_virt->address),
-                ip_to_str(*(uint32_t*)
-                    nl_addr_get_binary_addr((struct nl_addr *)local)));
+            print_debug("\tComparing %s and ", ip_to_str(temp_virt->address),
+                ip_to_str(*(uint32_t*));
+            print_debug("%s\n",
+                    nl_addr_get_binary_addr((struct nl_addr *)local));
 
             if(temp_virt->address ==
                 *(uint32_t*)nl_addr_get_binary_addr((struct nl_addr *)local)
@@ -1257,6 +1259,8 @@ print_interface(struct interface *i)
                     ip_to_str(htonl(virt->netmask)));
                 printf("\t  - Gateway: %s\n",
                     ip_to_str(htonl(virt->gateway)));
+                printf("\t  - External: %s\n",
+                    ip_to_str(htonl(virt->external_ip)));
             }
         }
     }
@@ -1370,7 +1374,7 @@ uint32_t find_free_routing_table(struct nl_sock *sock)
     filter = rtnl_route_alloc();
 
     //main routing tables start at 253
-    for(frt.table = 1; frt.table < 253; frt.table++) {
+    for(frt.table = 253; frt.table >= 0; frt.table--) {
         frt.flag = 0;
 
         rtnl_route_set_table(filter, frt.table);

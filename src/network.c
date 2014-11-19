@@ -463,8 +463,10 @@ void print_packet(struct mpdpacket *pkt)
             printf("Entry:\n");
             printf("\tAddress: %s\n", ip_to_str(e->address));
             printf("\tNetmask: %s\n", ip_to_str(e->netmask));
-			printf("\tGateway: %s\n", ip_to_str(e->ext_ip));
+            printf("\tGateway: %s\n", ip_to_str(e->gateway));
+			printf("\tExternal: %s\n", ip_to_str(e->ext_ip));
             printf("\tDepth: %d\n", e->depth);
+            printf("\tType: %d\n", e->type);
         }
         printf("\n");
     }

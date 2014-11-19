@@ -79,6 +79,7 @@ struct virtual_interface {
 	uint32_t address;
 	uint32_t netmask;
 	uint32_t gateway;
+	uint32_t external_ip;
 	uint8_t metric;
     uint8_t depth;
     uint8_t flags;

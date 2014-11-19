@@ -52,7 +52,8 @@ handle_gateway_update(
 	struct network_update *nupdate,
 	List *iff_list,
 	List *virt_list,
-	struct nl_sock *sock);
+	struct nl_sock *sock,
+	struct send_queue squeue);
 
 void sig_handler(int signum);
 int cleanup();
@@ -205,14 +206,21 @@ main(int argc, char *argv[])
 					if(u->action == ADD_IFF) {
 						print_debug("Update Link - Add Link\n");
 						/*Make sure we are interested in this interface*/
+						pthread_mutex_lock(&(squeue.iff_list_lock));
 						if(!add_link(link, iff_list, ignore_list, diss_list, PHYSICAL_TYPE)){
+							pthread_mutex_unlock(&(squeue.iff_list_lock));
 							goto LOOP_END;
 						}
+						pthread_mutex_unlock(&(squeue.iff_list_lock));
+
 					} else if(u->action == DEL_IFF) {
 						print_debug("Update Link - Del Link\n");
+						pthread_mutex_lock(&(squeue.iff_list_lock));
 						if(!delete_link(link, iff_list, virt_list, ignore_list)){
+							pthread_mutex_unlock(&(squeue.iff_list_lock));
 							goto LOOP_END;
 						}
+						pthread_mutex_unlock(&(squeue.iff_list_lock));
 					} else {
 						print_debug("Update Link - Unknown\n");
 					}
@@ -221,8 +229,11 @@ main(int argc, char *argv[])
 					if(u->action == ADD_IP) {
 						struct interface *iff = 0;
 						print_debug("Update Address - Add IP\n");
+						pthread_mutex_lock(&(squeue.iff_list_lock));
 						iff = add_addr(sock, addr, iff_list,
 								virt_list, ignore_list, diss_list);
+						pthread_mutex_unlock(&(squeue.iff_list_lock));
+
 						if(!iff){
 							print_debug("Add address failed...\n");
 							goto LOOP_END;
@@ -259,7 +270,9 @@ main(int argc, char *argv[])
 						}
 					} else if(u->action == DEL_IP) {
 						print_debug("Update Address - Del IP\n");
+						pthread_mutex_lock(&(squeue.iff_list_lock));
 						delete_addr(addr, iff_list, virt_list);
+						pthread_mutex_unlock(&(squeue.iff_list_lock));
 					} else {
 						print_debug("Update Address - Unknown\n");
 					}
@@ -268,11 +281,17 @@ main(int argc, char *argv[])
 					print_debug("Recieved update route type: %d\n", u->action);
 					if(u->action == ADD_RT) {
 						print_debug("Update Route - Add RT\n");
+						pthread_mutex_lock(&(squeue.iff_list_lock));
 						add_route(sock, route, iff_list, virt_list);
+						pthread_mutex_unlock(&(squeue.iff_list_lock));
+
 						print_debug("Update Route - Completed\n");
 					} else if(u->action == DEL_RT) {
 						print_debug("Update Route - Del RT\n");
+						pthread_mutex_lock(&(squeue.iff_list_lock));
 						delete_route(sock, route, iff_list, virt_list);
+						pthread_mutex_unlock(&(squeue.iff_list_lock));
+
 						/*
 						* Tell the network thread
 						* there was an update to the list
@@ -282,7 +301,9 @@ main(int argc, char *argv[])
 						pthread_mutex_unlock(&(squeue.flag_lock));
 					} else if(u->action == CHANGE_RT){
 						print_debug("Update Route - Change RT %d\n", u->action);
+						pthread_mutex_lock(&(squeue.iff_list_lock));
 						add_route(sock, route, iff_list, virt_list);
+						pthread_mutex_unlock(&(squeue.iff_list_lock));
 					} else {
 						print_debug("Update Route - Unknown %d\n", u->action);
 					}
@@ -297,7 +318,7 @@ main(int argc, char *argv[])
 					}
 
 					if(handle_gateway_update(nupdate,
-							iff_list, virt_list, sock))
+							iff_list, virt_list, sock, squeue))
 					{
 						print_debug("Network Update exited\n");
 						goto LOOP_END;
@@ -309,7 +330,9 @@ LOOP_END:
 				printf("-----------------------\n");
 				printf("- Physical Interfaces -\n");
 				printf("-----------------------\n");
+				pthread_mutex_lock(&(squeue.iff_list_lock));
 				print_interface_list(iff_list);
+				pthread_mutex_unlock(&(squeue.iff_list_lock));
 				printf("-----------------------\n");
 				printf("- Virtual Interfaces  -\n");
 				printf("-----------------------\n");
@@ -334,7 +357,8 @@ handle_gateway_update(
 	struct network_update *nupdate,
 	List *iff_list,
 	List *virt_list,
-	struct nl_sock *sock)
+	struct nl_sock *sock,
+	struct send_queue squeue)
 {
 	struct physical_interface * temp_phys;
 	struct virtual_interface * temp_virt;
@@ -350,23 +374,27 @@ handle_gateway_update(
 	pkt = &(nupdate->pkt);
 	addr = &(nupdate->addr);
 
-
+	pthread_mutex_lock(&(squeue.iff_list_lock));
 	phy = get_iff_network_update(addr->sin_addr.s_addr,
 								iff_list);
+	pthread_mutex_unlock(&(squeue.iff_list_lock));
+
 	host_id = get_host_id(phy);
 	for(idx = 0; idx < pkt->header->num; idx++){
 		struct mpdentry *entry = (pkt->entry)+idx;
 		Litem *item;
 		struct virtual_interface * v;
-		int host_ip = 0;
+		uint32_t host_ip = 0;
 
 		if (entry->depth >= MAX_DEPTH){
 			return FAILURE;
 		}
 
 		//check IP doesnt already exist;
-		host_ip = htonl((entry->netmask & entry->address) || htonl(host_id));
+		host_ip = htonl((entry->netmask & entry->address) | htonl(host_id));
 
+		print_debug("Lock ifflist\n");
+		pthread_mutex_lock(&(squeue.iff_list_lock));
 		for(i = 0; i < list_size(iff_list); i++){
 			temp_phys = (struct physical_interface*)
 							(list_get(iff_list, i))->data;
@@ -378,6 +406,8 @@ handle_gateway_update(
 				}
 			}
 		}
+		pthread_mutex_unlock(&(squeue.iff_list_lock));
+		print_debug("Unlock ifflist\n");
 
 		if(exists){
 			return FAILURE;
@@ -404,10 +434,15 @@ handle_gateway_update(
 			return FAILURE;
 		}
 
+		print_debug("Lock ifflist\n");
+
+		pthread_mutex_lock(&(squeue.iff_list_lock));
 		v = add_virtual(phy->super.ifname,
 						phy->super.ifidx,
 						0,
 						virt_list);
+		pthread_mutex_unlock(&(squeue.iff_list_lock));
+		print_debug("Unlock ifflist\n");
 
 		print_debug("Added virtual interface %p\n", v);
 
@@ -416,12 +451,15 @@ handle_gateway_update(
 			return FAILURE;
 		}
 
+		print_debug("External IP: %s\n", ip_to_str(htonl(entry->ext_ip)));
+
 		v->gateway = htonl(entry->address);
 		v->out = phy;
 		v->attach = phy;
 		v->address = host_ip;
 		v->netmask = htonl(entry->netmask);
 		v->depth = entry->depth + 1;
+		v->external_ip = htonl(entry->ext_ip);
 		print_debug("Find a free routing table\n");
 		v->table = find_free_routing_table(sock);
 		print_debug("\tAssigned - %u\n", v->table);
@@ -429,42 +467,56 @@ handle_gateway_update(
 		if(!item){
 			errno = ENOMEM;
 			destroy_virt_interface(v);
-			fprintf(stderr, "Failed to malloc a "
-							"new list item\n");
+			fprintf(stderr, "Failed to malloc a new list item\n");
 		}
-		print_debug("Add the new virtual interface "
-					"to the phy list\n");
+		print_debug("Add the new virtual interface to the phy list\n");
 		item->data = (void*)v;
-		list_put(phy->virt_list, item);
 		print_debug("Add address to the interface\n");
 		print_debug("Virt IP: %s\n", ip_to_str(v->address));
-		print_debug("Phy List: %p\n", phy->virt_list);
+		print_debug("Physical Virt List: %p\n", phy->virt_list);
 		if(!phy->virt_list){
 			phy->virt_list = malloc(sizeof(List));
 			list_init(phy->virt_list);
-		}
+			print_debug("Init Physical Virt List: %p\n", phy->virt_list);
 
+		}
+		list_put(phy->virt_list, item);
+		print_debug("Added item, interfacse (%d)\n", list_size(phy->virt_list));
+
+
+		print_debug("Lock ifflist\n");
+		pthread_mutex_lock(&(squeue.iff_list_lock));
 		if(add_address(sock,
 						v->address,
 						phy->super.ifidx,
 						list_size(phy->virt_list)))
 		{
+			pthread_mutex_unlock(&(squeue.iff_list_lock));
+
 			/*
-			This could be because the address alreadu exists
+			This could be because the address already exists
 			in which case, we should try and add the default
 			route anyway.
 			*/
 			fprintf(stderr, "Failed to add address, for network update\n");
 			//continue;
 		}
+		pthread_mutex_unlock(&(squeue.iff_list_lock));
+		print_debug("Unlock ifflist\n");
+
 
 		print_debug("Create the default route\n");
 
+		pthread_mutex_lock(&(squeue.iff_list_lock));
+
 		if(add_default_route(sock, entry->address, v->table, phy->super.ifidx))
 		{
+			pthread_mutex_unlock(&(squeue.iff_list_lock));
+
 			fprintf(stderr, "Failed to add route, for network update\n");
 			return FAILURE;
 		}
+		pthread_mutex_unlock(&(squeue.iff_list_lock));
 
 	}
 

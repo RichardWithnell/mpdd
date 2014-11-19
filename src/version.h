@@ -18,7 +18,6 @@
 
 /*
  * version.h	Versioning Information
- *
  */
 
 #ifndef MPDD_VERSION_H_
