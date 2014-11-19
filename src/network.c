@@ -327,9 +327,9 @@ do_broadcast(struct physical_interface *i,
     }
 
     print_debug("Broadcasting to %s \n",
-        ip_to_str((unsigned int)i->saddr.sin_addr.s_addr));
+        ip_to_str(htonl((unsigned int)i->saddr.sin_addr.s_addr)));
     print_debug("Broadcasting to %s \n",
-        ip_to_str((unsigned int)i->broadcast));
+        ip_to_str(htonl((unsigned int)i->broadcast)));
     sent = sendto(sock,
              buffer,
              len,
@@ -414,7 +414,7 @@ send_update_broadcast(List *iff_list, int sock)
             print_debug("Create Packet for %s\n", iff->super.ifname);
 
 			if((gws = create_update_packet(iff, &packet)) < 0){
-				print_debug("Create Packet Failed - %d\n", gws);
+				print_debug("Create Packet Failed: %d\n", gws);
 				continue;
 			}
 
@@ -602,6 +602,11 @@ create_update_packet(struct physical_interface *iff, struct mpdpacket **packet)
 	int buffer_size = 0;
 	int size = 0;
     struct mpdpacket *pkt;
+
+    if(!iff->virt_list){
+        print_debug("Virtual interface list has not been created\n");
+        return FAILURE;
+    }
 
 	size = list_size(iff->virt_list);
 

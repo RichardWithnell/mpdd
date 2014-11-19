@@ -248,17 +248,22 @@ main(int argc, char *argv[])
 							/*Check we actually have connectivity
 							TODO make the external IP check continuous*/
 							if(virt->out->external_ip != 0){
+								char *external_ip = ip_to_str(htonl(virt->out->external_ip));
+								print_debug("Virtual Interface has Internet connection %s\n", external_ip);
 								pthread_mutex_lock(&(squeue.flag_lock));
 								squeue.flag = 1;
 								pthread_mutex_unlock(&(squeue.flag_lock));
 							}
 						} else if(iff->type == PHYSICAL_TYPE ) {
-							struct physical_interface *phys;
-							Qitem *qi;
+							struct physical_interface *phys = (struct physical_interface*)0;
+							Qitem *qi = (Qitem*)0;
 
 							print_debug("Physical address added\n");
 
-							qi = malloc(sizeof(qi));
+							if(!(qi = malloc(sizeof(Qitem)))){
+								print_debug("Malloc failed\n");
+								continue;
+							}
 							phys = (struct physical_interface *)iff;
 							qi->data = phys;
 
@@ -466,6 +471,7 @@ handle_gateway_update(
 		v->netmask = htonl(entry->netmask);
 		v->depth = entry->depth + 1;
 		v->external_ip = htonl(entry->ext_ip);
+		v->type_gateway = 1;
 		print_debug("Find a free routing table\n");
 		v->table = free_table;
 		print_debug("\tAssigned - %u\n", v->table);
@@ -523,6 +529,11 @@ handle_gateway_update(
 			fprintf(stderr, "Failed to add route, for network update\n");
 			return FAILURE;
 		}
+
+    	create_aliases_for_gw(sock, iff_list, virt_list, (struct interface*)v);
+		create_routing_table(sock, (struct interface*)v);
+		create_rules_for_gw(sock, virt_list, (struct interface*)v);
+
 		pthread_mutex_unlock(&(squeue.iff_list_lock));
 
 	}

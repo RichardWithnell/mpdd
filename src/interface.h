@@ -84,6 +84,8 @@ struct virtual_interface {
     uint8_t depth;
     uint8_t flags;
     uint8_t table;
+	uint8_t type_gateway;
+	uint8_t type_subnet;
     char label[IFNAMSIZ];
     //TAP ADAPTER
 	struct physical_interface *attach;
@@ -136,7 +138,7 @@ void delete_rule_cb(struct nl_object *cb, void *arg);
 int delete_route_from_physical(List *l, uint32_t route);
 
 int add_address(struct nl_sock *sock, unsigned int ip, int ifidx, int label);
-int create_aliases_for_gw(struct nl_sock *sock, List *phys_list, List *virt_list, struct physical_interface *p);
+int create_aliases_for_gw(struct nl_sock *sock, List *phys_list, List *virt_list, struct interface *p);
 int create_rules_for_gw(struct nl_sock *sock, List *list, struct interface *gw);
 int create_rule_for_gw(struct nl_sock *sock, struct virtual_interface *iff, int ifidx);
 int create_routing_table(struct nl_sock *sock, struct interface *iff);

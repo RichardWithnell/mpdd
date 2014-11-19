@@ -332,9 +332,7 @@ add_addr (
     local = rtnl_addr_get_local(addr);
 
     if(nl_addr_iszero(local)){
-        #ifdef DEBUG
         print_debug("Address invalid\n");
-        #endif
         return (struct interface*)0;
     }
 
@@ -560,7 +558,7 @@ add_route(struct nl_sock *sock,
 
     /*create virtual interfaces*/
     print_debug("create aliases for gw\n");
-    create_aliases_for_gw(sock, iff_list, virt_list, p);
+    create_aliases_for_gw(sock, iff_list, virt_list, (struct interface*)p);
     /*create ip rules to tunnel traffic*/
     print_debug("create rules for gw\n");
     create_rules_for_gw(sock, virt_list, (struct interface*)p);
@@ -843,7 +841,7 @@ create_aliases_for_gw(
     struct nl_sock *sock,
     List *phys_list,
     List *virt_list,
-    struct physical_interface *p)
+    struct interface *p)
 {
     int i = 0;
     int size = 0;
@@ -854,7 +852,7 @@ create_aliases_for_gw(
         struct physical_interface *iff =
         (struct physical_interface*)(list_get(phys_list, i))->data;
 
-        if(iff == p){
+        if((struct interface*)iff == (struct interface*)p){
             continue;
         }
 
@@ -887,8 +885,14 @@ create_aliases_for_gw(
             }
 
             v = add_virtual(iff->super.ifname, iff->super.ifidx, 0, virt_list);
-            v->gateway = p->gateway;
-            v->out = p;
+            if(p->type == VIRTUAL_TYPE){
+                v->gateway = ((struct virtual_interface*)p)->gateway;
+
+                v->out = ((struct virtual_interface*)p)->out;
+            } else {
+                v->gateway = ((struct physical_interface*)p)->gateway;
+                v->out = (struct physical_interface*)p;
+            }
             v->attach = iff;
 
             item = (Litem*)malloc(sizeof(Litem));
@@ -1040,9 +1044,18 @@ create_rules_for_gw(struct nl_sock *sock, List *list, struct interface *gw)
         struct virtual_interface *iff =
         (struct virtual_interface*)(list_get(list, i))->data;
 
-        if(iff->attach->diss && gw->ifidx == iff->out->super.ifidx){
-            print_debug("Name: %s\n", iff->super.ifname);
-            create_rule_for_gw(sock, iff, gw->ifidx);
+        if(gw->type == PHYSICAL_TYPE){
+            if(iff->attach->diss && gw->ifidx == iff->out->super.ifidx){
+                print_debug("Name: %s\n", iff->super.ifname);
+                create_rule_for_gw(sock, iff, gw->ifidx);
+            }
+        } else {
+            struct virtual_interface *p = (struct virtual_interface*)gw;
+
+            if(iff->attach->diss){
+                print_debug("Name: %s\n", iff->super.ifname);
+                create_rule_for_gw(sock, iff, p->table);
+            }
         }
     }
     return SUCCESS;
@@ -1471,6 +1484,7 @@ struct virtual_interface *init_virt(void)
     v->super.type = VIRTUAL_TYPE;
     v->attach = (struct physical_interface*)0;
     v->out = (struct physical_interface*)0;
+    v->external_ip = 0;
     v->address = 0;
     v->netmask = 0;
     v->gateway = 0;
@@ -1479,6 +1493,7 @@ struct virtual_interface *init_virt(void)
     v->metric = 0;
     v->depth = 0;
     v->table = 0;
+    v->type_gateway = 0;
     return v;
 }
 
