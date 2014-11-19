@@ -122,7 +122,7 @@ int delete_addr(struct rtnl_addr *addr, List *iff, List *virt);
 struct physical_interface* add_route(struct nl_sock *sock, struct rtnl_route *route, List *iff, List *virt);
 int delete_route(struct nl_sock *sock, struct rtnl_route *route, List *iff_list, List *virt_list);
 
-uint32_t find_free_routing_table(struct nl_sock *sock);
+int16_t find_free_routing_table(struct nl_sock *sock);
 
 int flush_table(struct nl_sock *sock, int table);
 void flush_table_cb(struct nl_object *cb, void *arg);
@@ -138,7 +138,7 @@ int delete_route_from_physical(List *l, uint32_t route);
 int add_address(struct nl_sock *sock, unsigned int ip, int ifidx, int label);
 int create_aliases_for_gw(struct nl_sock *sock, List *phys_list, List *virt_list, struct physical_interface *p);
 int create_rules_for_gw(struct nl_sock *sock, List *list, struct interface *gw);
-int create_rule_for_gw(struct nl_sock *sock, struct virtual_interface *iff, struct interface *gw);
+int create_rule_for_gw(struct nl_sock *sock, struct virtual_interface *iff, int ifidx);
 int create_routing_table(struct nl_sock *sock, struct interface *iff);
 
 

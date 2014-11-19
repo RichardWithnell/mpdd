@@ -385,6 +385,7 @@ handle_gateway_update(
 		Litem *item;
 		struct virtual_interface * v;
 		uint32_t host_ip = 0;
+		int16_t free_table = -1;
 
 		if (entry->depth >= MAX_DEPTH){
 			return FAILURE;
@@ -434,8 +435,13 @@ handle_gateway_update(
 			return FAILURE;
 		}
 
-		print_debug("Lock ifflist\n");
+		free_table = find_free_routing_table(sock);
+		if(free_table < 0 ){
+			print_debug("No more free routing tables\n");
+			continue;
+		}
 
+		print_debug("Lock ifflist\n");
 		pthread_mutex_lock(&(squeue.iff_list_lock));
 		v = add_virtual(phy->super.ifname,
 						phy->super.ifidx,
@@ -461,8 +467,9 @@ handle_gateway_update(
 		v->depth = entry->depth + 1;
 		v->external_ip = htonl(entry->ext_ip);
 		print_debug("Find a free routing table\n");
-		v->table = find_free_routing_table(sock);
+		v->table = free_table;
 		print_debug("\tAssigned - %u\n", v->table);
+		create_rule_for_gw(sock, v, v->table);
 		item = (Litem*)malloc(sizeof(Litem));
 		if(!item){
 			errno = ENOMEM;

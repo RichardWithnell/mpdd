@@ -347,7 +347,7 @@ add_addr (
             temp_phys = (struct physical_interface*)(list_get(iff, i))->data;
             print_debug("\tComparing %s and ",
                 ip_to_str(temp_phys->address));
-            print_debug("%s\n"
+            print_debug("%s\n",
                 ip_to_str(*(uint32_t*)
                     nl_addr_get_binary_addr((struct nl_addr *)local)));
 
@@ -362,10 +362,11 @@ add_addr (
         for(i = 0; i < list_size(virt); i++) {
             temp_virt = (struct virtual_interface*)(list_get(virt, i))->data;
 
-            print_debug("\tComparing %s and ", ip_to_str(temp_virt->address),
-                ip_to_str(*(uint32_t*));
+            print_debug("\tComparing %s and ", ip_to_str(temp_virt->address));
             print_debug("%s\n",
-                    nl_addr_get_binary_addr((struct nl_addr *)local));
+                    ip_to_str(*
+                        (uint32_t*)nl_addr_get_binary_addr(
+                            (struct nl_addr *)local)));
 
             if(temp_virt->address ==
                 *(uint32_t*)nl_addr_get_binary_addr((struct nl_addr *)local)
@@ -457,7 +458,7 @@ add_addr (
 
         if(p->diss){
             print_debug("Added address to virtual list, find gateway\n");
-            create_rule_for_gw(sock, v, (struct interface*)v->out);
+            create_rule_for_gw(sock, v, v->out->super.ifidx);
         }
 
         return (struct interface*)v;
@@ -567,7 +568,7 @@ add_route(struct nl_sock *sock,
     print_debug("create routing table\n");
     create_routing_table(sock, (struct interface*)p);
     print_debug("get_external_ip\n");
-    p->external_ip = htonl(get_ext_ip(p->address));
+    p->external_ip = get_ext_ip(p->address);
     print_debug(" Done\n");
     return p;
 }
@@ -826,6 +827,7 @@ clean_up_interfaces(struct nl_sock *sock, List *list)
         print_debug("delete rules with address: \n");
         //print_ip(iff->address);
         flush_table(sock, iff->out->super.ifidx);
+        flush_table(sock, iff->table);
         delete_rule(sock, iff->address, iff->netmask);
         delete_virtual_address(sock, iff->address, iff->attach->super.ifidx);
     }
@@ -979,7 +981,7 @@ int
 create_rule_for_gw(
     struct nl_sock *sock,
     struct virtual_interface *iff,
-    struct interface *gw)
+    int ifidx)
 {
     print_debug("Creating a rule for a virtual interface\n");
 
@@ -1007,7 +1009,7 @@ create_rule_for_gw(
         }
         rtnl_rule_set_mask(rule, 24);
 
-        rtnl_rule_set_table (rule, gw->ifidx);
+        rtnl_rule_set_table (rule, ifidx);
 
         if(rtnl_rule_add(sock, rule, 0)){
             perror("create_rules_for_gw() - Failed to add rule");
@@ -1040,7 +1042,7 @@ create_rules_for_gw(struct nl_sock *sock, List *list, struct interface *gw)
 
         if(iff->attach->diss && gw->ifidx == iff->out->super.ifidx){
             print_debug("Name: %s\n", iff->super.ifname);
-            create_rule_for_gw(sock, iff, gw);
+            create_rule_for_gw(sock, iff, gw->ifidx);
         }
     }
     return SUCCESS;
@@ -1218,7 +1220,7 @@ print_interface(struct interface *i)
 {
     if(i->type == VIRTUAL_TYPE){
         struct virtual_interface * iff = (struct virtual_interface*)i;
-        printf("Virtual Interface\n");
+        printf("Virtual Interface (%p)\n", iff);
         if(iff->attach){
             printf("  Ingress Interface %d: %s\n",
             iff->attach->super.ifidx,
@@ -1232,12 +1234,13 @@ print_interface(struct interface *i)
         printf("\tAddress: %s\n", ip_to_str(htonl(iff->address)));
         printf("\tMask: %s\n", ip_to_str(htonl(iff->netmask)));
         printf("\tGateway: %s\n", ip_to_str(htonl(iff->gateway)));
-        printf("\tExternal IP: %s\n", ip_to_str(htonl(iff->out->external_ip)));
+        printf("\tExternal IP: %s\n", ip_to_str(htonl(iff->external_ip)));
     } else if(i->type == PHYSICAL_TYPE) {
         struct physical_interface * iff = (struct physical_interface*)i;
-        printf("Physical Interface %d: %s\n",
+        printf("Physical Interface %d: %s Pointer(%p)\n",
             iff->super.ifidx,
-            iff->super.ifname);
+            iff->super.ifname,
+            iff);
         printf("\tAddress: %s\n", ip_to_str(htonl(iff->address)));
         printf("\tBroadcast: %s\n", ip_to_str(htonl(iff->broadcast)));
         printf("\tGateway: %s\n", ip_to_str(htonl(iff->gateway)));
@@ -1253,6 +1256,7 @@ print_interface(struct interface *i)
                 struct virtual_interface *virt =
                     (struct virtual_interface *)
                         (list_get(iff->virt_list, i)->data);
+                printf("\t  - Virt (%p)\n", virt);
                 printf("\t  - Address: %s\n",
                     ip_to_str(htonl(virt->address)));
                 printf("\t  - Subnet: %s\n",
@@ -1261,6 +1265,7 @@ print_interface(struct interface *i)
                     ip_to_str(htonl(virt->gateway)));
                 printf("\t  - External: %s\n",
                     ip_to_str(htonl(virt->external_ip)));
+                printf("\n");
             }
         }
     }
@@ -1363,7 +1368,7 @@ free_rt_cb(struct nl_object *cb, void *arg)
 /*
 *
 */
-uint32_t find_free_routing_table(struct nl_sock *sock)
+int16_t find_free_routing_table(struct nl_sock *sock)
 {
     struct rtnl_route *filter = 0;
     struct nl_cache *cache = 0;
@@ -1374,7 +1379,7 @@ uint32_t find_free_routing_table(struct nl_sock *sock)
     filter = rtnl_route_alloc();
 
     //main routing tables start at 253
-    for(frt.table = 253; frt.table >= 0; frt.table--) {
+    for(frt.table = 252; frt.table >= 1; frt.table--) {
         frt.flag = 0;
 
         rtnl_route_set_table(filter, frt.table);
