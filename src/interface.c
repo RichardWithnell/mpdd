@@ -30,13 +30,12 @@
 struct physical_interface *
 get_iff_network_update(uint32_t sender_ip, List *iff_list)
 {
-    int idx = 0;
     if(!sender_ip){
         print_debug("sender IP NULL\n");
         return (struct physical_interface *)FAILURE;
     }
 
-    list_for_each(iff_list){
+    list_for_each(item, iff_list){
         struct physical_interface *iff = item->data;
         printf("Sender IP: %s\n", ip_to_str(sender_ip));
         printf("Iff Address: %s\n", ip_to_str(iff->address));
@@ -69,7 +68,7 @@ uint32_t get_host_id(struct physical_interface *phy)
 *
 */
 int in_list(char *name, List *diss_list){
-    list_for_each(diss_list){
+    list_for_each(item, diss_list){
         char *data = item->data;
         if(!strcmp(data, name)){
             return 1;
@@ -84,8 +83,6 @@ int in_list(char *name, List *diss_list){
 */
 int mark_diss_iff(char *name, List *diss_list)
 {
-    int idx = 0;
-
     if(!name){
         print_debug("Name is NULL");
         return 0;
@@ -96,7 +93,7 @@ int mark_diss_iff(char *name, List *diss_list)
         return 0;
     }
 
-    list_for_each(diss_list){
+    list_for_each(item, diss_list){
         char *data = item->data;
 
         if(!data){
@@ -122,7 +119,7 @@ int mark_diss_iff(char *name, List *diss_list)
 */
 struct interface * get_interface_by_idx(int ifidx, List *l)
 {
-    list_for_each{
+    list_for_each(item, l){
         struct interface *iff = item->data;
         if(iff->ifidx == ifidx){
             return (struct interface*)iff;
@@ -312,7 +309,6 @@ add_addr (
     uint32_t *broadcast = 0;
     uint32_t prefix = 0;
     int ifidx = -1;
-    int i = 0;
     struct physical_interface * temp_phys;
     struct virtual_interface * temp_virt;
 
@@ -335,8 +331,8 @@ add_addr (
     print_debug("Address Index: %d\n",  ifidx);
 
     if(local){
-        list_for_each(iff){
-            temp_phys = (struct physical_interface*)item->data;
+        list_for_each(pitem, iff){
+            temp_phys = (struct physical_interface*)pitem->data;
             print_debug("\tComparing %s and ",
                 ip_to_str(temp_phys->address));
             print_debug("%s\n",
@@ -350,8 +346,8 @@ add_addr (
                 return (struct interface*)0;
             }
         }
-        list_for_each(virt){
-            temp_virt = (struct virtual_interface*)item->data;
+        list_for_each(vitem, virt){
+            temp_virt = (struct virtual_interface*)vitem->data;
 
             print_debug("\tComparing %s and ", ip_to_str(temp_virt->address));
             print_debug("%s\n",
@@ -374,7 +370,6 @@ add_addr (
     label = rtnl_addr_get_label (addr);
 
     if (strstr(label, ":") != NULL) {
-        int i = 0;
         struct physical_interface *p = (struct physical_interface*)0;
         struct virtual_interface *v = (struct virtual_interface*)0;
         print_debug(" Handling add alias address\n");
@@ -405,7 +400,7 @@ add_addr (
 
         if(p->virt_list){
             print_debug("Virtual List: %d\n", list_size(p->virt_list));
-            list_for_each(p->virt_list){
+            list_for_each(item, p->virt_list){
                 struct virtual_interface *iff = item->data;
                 if(!iff->address){
                     v = (struct virtual_interface*)iff;
@@ -570,9 +565,7 @@ add_route(struct nl_sock *sock,
 */
 int delete_route_from_physical(List *l, uint32_t route)
 {
-    int size = list_size(l);
-    int i = 0;
-    list_for_each(l){
+    list_for_each(item, l){
         struct physical_interface *iff = (struct physical_interface*)item->data;
         if(iff->gateway == route){
             iff->gateway = 0;
@@ -635,11 +628,7 @@ delete_rule(struct nl_sock *sock, uint32_t ip, uint32_t mask)
 int
 delete_rules_by_gw(struct nl_sock *sock, List *list, uint32_t gw)
 {
-    int i = 0;
-    int size = 0;
-
-    size = list_size(list);
-    list_for_each(list){
+    list_for_each(item, list){
         struct virtual_interface *iff = item->data;
 
         if(iff->gateway == gw){
@@ -808,7 +797,7 @@ int
 clean_up_interfaces(struct nl_sock *sock, List *list)
 {
     print_debug("Cleaning up created rules\n");
-    list_for_each(list){
+    list_for_each(item, list){
         struct virtual_interface *iff = item->data;
         print_debug("delete rules with address: \n");
         //print_ip(iff->address);
@@ -832,7 +821,7 @@ create_aliases_for_gw(
     struct interface *p)
 {
     print_debug("\n");
-    list_for_each(phys_list){
+    list_for_each(item, phys_list){
         struct physical_interface *iff =
         (struct physical_interface*)item->data;
 
@@ -1019,11 +1008,8 @@ create_rule_for_gw(
 int
 create_rules_for_gw(struct nl_sock *sock, List *list, struct interface *gw)
 {
-    int i = 0;
-    int size = list_size(list);
-
     print_debug("\n");
-    list_for_each(list){
+    list_for_each(item, list){
         struct virtual_interface *iff = (struct virtual_interface*)item->data;
 
         if(gw->type == PHYSICAL_TYPE){
@@ -1191,12 +1177,7 @@ void
 print_interface_list(List *l)
 {
     print_debug("Print Interface List\n");
-    int size = 0;
-    size = list_size(l);
-
-    print_debug("List Size: %d\n", size);
-
-    list_for_each(l){
+    list_for_each(item, l){
         struct interface *iff = item->data;
         if(iff){
             print_interface(iff);
@@ -1244,7 +1225,7 @@ print_interface(struct interface *i)
         printf("\tDissem: %d\n", iff->diss);
         if(iff->virt_list && iff->virt_list->size > 0){
             printf("\tVirtual Interfaces: (%d)\n", iff->virt_list->size);
-            list_for_each(iff->virt_list){
+            list_for_each(item, iff->virt_list){
                 struct virtual_interface *virt =
                     (struct virtual_interface *) item->data;
                 printf("\t  - Virt (%p)\n", virt);
