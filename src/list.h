@@ -43,4 +43,11 @@ void list_put(List *l, Litem *new_item);
 void list_destroy(List *l);
 Litem * list_remove(List *l, uint32_t index);
 Litem * list_get(List *l, uint32_t index);
+
+
+#define list_for_each(list) Litem *item = (Litem*)0; \
+                            for(item = list->front; item != 0; item = item->next) \
+
+
+
 #endif
