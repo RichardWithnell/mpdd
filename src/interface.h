@@ -87,7 +87,6 @@ struct virtual_interface {
 	uint8_t type_gateway;
 	uint8_t type_subnet;
     char label[IFNAMSIZ];
-    //TAP ADAPTER
 	struct physical_interface *attach;
 	struct physical_interface *out;
 };
@@ -120,9 +119,11 @@ struct virtual_interface *add_virtual(char* name, uint32_t idx, uint32_t flags, 
 
 int delete_link(struct rtnl_link *link, List *iff, List *virt, List *ignore_list);
 struct interface* add_addr(struct nl_sock *sock, struct rtnl_addr *addr, List *iff, List *virt, List * ignore_list, List * diss_list);
-int delete_addr(struct rtnl_addr *addr, List *iff, List *virt);
+int delete_address_rtnl(struct rtnl_addr *addr, List *iff, List *virt);
 struct physical_interface* add_route(struct nl_sock *sock, struct rtnl_route *route, List *iff, List *virt);
 int delete_route(struct nl_sock *sock, struct rtnl_route *route, List *iff_list, List *virt_list);
+
+int delete_address(struct nl_sock *sock, uint32_t ip, uint32_t netmask, uint8_t ifidx);
 
 int16_t find_free_routing_table(struct nl_sock *sock);
 

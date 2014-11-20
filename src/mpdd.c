@@ -37,8 +37,6 @@
 #include "network.h"
 #include "config.h"
 
-
-
 #define MAX_DEPTH 255
 
 #define CONFIG_FILE "/etc/mpd/mpdd.conf"
@@ -176,7 +174,8 @@ main(int argc, char *argv[])
 	mon_data.addr_cache = 0;
 	mon_data.link_cache = 0;
 
-	pthread_create(&monitor_thread, NULL, (void *)&init_monitor, (void *)&mon_data);
+	pthread_create(&monitor_thread, NULL,
+				   (void *)&init_monitor, (void *)&mon_data);
 
 	queue_init(&(squeue.receive_queue));
 	queue_init(&(squeue.request_queue));
@@ -188,171 +187,249 @@ main(int argc, char *argv[])
 	squeue.running = 1;
 	squeue.mon_data = &mon_data;
 
-	pthread_create(&network_thread, NULL, (void *)&recv_broadcast, (void *)&squeue);
+	pthread_create(&network_thread, NULL,
+				   (void *)&recv_broadcast, (void *)&squeue);
 
 	while(running) {
 		sem_wait(&update_barrier);
 		if(!running) break;
-			print_debug("Recieved update\n");
-			pthread_mutex_lock(&update_lock);
-			Qitem *qitem = queue_get(&update_queue);
-			pthread_mutex_unlock(&update_lock);
+		print_debug("Recieved update\n");
+		pthread_mutex_lock(&update_lock);
+		Qitem *qitem = queue_get(&update_queue);
+		pthread_mutex_unlock(&update_lock);
 
-			if(qitem) {
-				struct update_obj *u = qitem->data;
-				print_debug("Recieved qitem %d\n", u->type);
-				if(u->type == UPDATE_LINK){
-					struct rtnl_link *link = u->update;
-					if(u->action == ADD_IFF) {
-						print_debug("Update Link - Add Link\n");
-						/*Make sure we are interested in this interface*/
-						pthread_mutex_lock(&(squeue.iff_list_lock));
-						if(!add_link(link, iff_list, ignore_list, diss_list, PHYSICAL_TYPE)){
-							pthread_mutex_unlock(&(squeue.iff_list_lock));
-							goto LOOP_END;
-						}
+		if(qitem) {
+			struct update_obj *u = qitem->data;
+			print_debug("Recieved qitem %d\n", u->type);
+			if(u->type == UPDATE_LINK){
+				struct rtnl_link *link = u->update;
+				if(u->action == ADD_IFF) {
+					print_debug("Update Link - Add Link\n");
+					/*Make sure we are interested in this interface*/
+					pthread_mutex_lock(&(squeue.iff_list_lock));
+					if(!add_link(link, iff_list, ignore_list,
+								 diss_list, PHYSICAL_TYPE))
+					{
 						pthread_mutex_unlock(&(squeue.iff_list_lock));
-
-					} else if(u->action == DEL_IFF) {
-						print_debug("Update Link - Del Link\n");
-						pthread_mutex_lock(&(squeue.iff_list_lock));
-						if(!delete_link(link, iff_list, virt_list, ignore_list)){
-							pthread_mutex_unlock(&(squeue.iff_list_lock));
-							goto LOOP_END;
-						}
-						pthread_mutex_unlock(&(squeue.iff_list_lock));
-					} else {
-						print_debug("Update Link - Unknown\n");
+						goto LOOP_END;
 					}
-				} else if(u->type == UPDATE_ADDR){
-					struct rtnl_addr *addr = (struct rtnl_addr*)u->update;
-					if(u->action == ADD_IP) {
-						struct interface *iff = 0;
-						print_debug("Update Address - Add IP\n");
-						pthread_mutex_lock(&(squeue.iff_list_lock));
-						iff = add_addr(sock, addr, iff_list,
-								virt_list, ignore_list, diss_list);
+					pthread_mutex_unlock(&(squeue.iff_list_lock));
+
+				} else if(u->action == DEL_IFF) {
+					print_debug("Update Link - Del Link\n");
+					pthread_mutex_lock(&(squeue.iff_list_lock));
+					if(!delete_link(link, iff_list, virt_list, ignore_list)){
 						pthread_mutex_unlock(&(squeue.iff_list_lock));
+						goto LOOP_END;
+					}
+					pthread_mutex_unlock(&(squeue.iff_list_lock));
+				} else {
+					print_debug("Update Link - Unknown\n");
+				}
+			} else if(u->type == UPDATE_ADDR){
+				struct rtnl_addr *addr = (struct rtnl_addr*)u->update;
+				if(u->action == ADD_IP) {
+					struct interface *iff = 0;
+					print_debug("Update Address - Add IP\n");
+					pthread_mutex_lock(&(squeue.iff_list_lock));
+					iff = add_addr(sock, addr, iff_list,
+							virt_list, ignore_list, diss_list);
+					pthread_mutex_unlock(&(squeue.iff_list_lock));
 
-						if(!iff){
-							print_debug("Add address failed...\n");
-							goto LOOP_END;
-						}
-						/*Tell the network thread there was an update*/
-						if(iff->type == VIRTUAL_TYPE ){
-							struct virtual_interface *virt;
+					if(!iff){
+						print_debug("Add address failed...\n");
+						goto LOOP_END;
+					}
+					/*Tell the network thread there was an update*/
+					if(iff->type == VIRTUAL_TYPE ){
+						struct virtual_interface *virt;
 
-							print_debug("Virtual address added\n");
+						print_debug("Virtual address added\n");
 
-							virt = (struct virtual_interface*)iff;
-							/*Check we actually have connectivity
-							TODO make the external IP check continuous*/
-							if(virt->out->external_ip != 0){
-								char *external_ip = ip_to_str(htonl(virt->out->external_ip));
-								print_debug("Virtual Interface has Internet connection %s\n", external_ip);
-								pthread_mutex_lock(&(squeue.flag_lock));
-								squeue.flag = 1;
-								pthread_mutex_unlock(&(squeue.flag_lock));
-							}
-						} else if(iff->type == PHYSICAL_TYPE ) {
-							struct physical_interface *phys = (struct physical_interface*)0;
-							Qitem *qi = (Qitem*)0;
+						virt = (struct virtual_interface*)iff;
+						/*Check we actually have connectivity
+						TODO make the external IP check continuous*/
+						if(virt->out->external_ip != 0){
+							char *external_ip =
+								ip_to_str(htonl(virt->out->external_ip));
 
-							print_debug("Physical address added\n");
-
-							if(!(qi = malloc(sizeof(Qitem)))){
-								print_debug("Malloc failed\n");
-								continue;
-							}
-							phys = (struct physical_interface *)iff;
-							qi->data = phys;
-
-							/*Found a new interface, request MPDD updates*/
+							print_debug("Virtual Interface has Internet "
+										"connection %s\n", external_ip);
 							pthread_mutex_lock(&(squeue.flag_lock));
-							squeue.request_flag = 1;
-							queue_put(&(squeue.request_queue), qi);
+							squeue.flag = 1;
 							pthread_mutex_unlock(&(squeue.flag_lock));
 						}
-					} else if(u->action == DEL_IP) {
-						print_debug("Update Address - Del IP\n");
-						pthread_mutex_lock(&(squeue.iff_list_lock));
-						delete_addr(addr, iff_list, virt_list);
-						pthread_mutex_unlock(&(squeue.iff_list_lock));
-					} else {
-						print_debug("Update Address - Unknown\n");
-					}
-				} else if(u->type == UPDATE_ROUTE){
-					struct rtnl_route *route = u->update;
-					print_debug("Recieved update route type: %d\n", u->action);
-					if(u->action == ADD_RT) {
-						print_debug("Update Route - Add RT\n");
-						pthread_mutex_lock(&(squeue.iff_list_lock));
-						add_route(sock, route, iff_list, virt_list);
-						pthread_mutex_unlock(&(squeue.iff_list_lock));
+					} else if(iff->type == PHYSICAL_TYPE ) {
+						struct physical_interface *phys =
+							(struct physical_interface*)0;
+						Qitem *qi = (Qitem*)0;
 
-						print_debug("Update Route - Completed\n");
-					} else if(u->action == DEL_RT) {
-						print_debug("Update Route - Del RT\n");
-						pthread_mutex_lock(&(squeue.iff_list_lock));
-						delete_route(sock, route, iff_list, virt_list);
-						pthread_mutex_unlock(&(squeue.iff_list_lock));
+						print_debug("Physical address added\n");
 
-						/*
-						* Tell the network thread
-						* there was an update to the list
-						*/
+						if(!(qi = malloc(sizeof(Qitem)))){
+							print_debug("Malloc failed\n");
+							continue;
+						}
+						phys = (struct physical_interface *)iff;
+						qi->data = phys;
+
+						/*Found a new interface, request MPDD updates*/
 						pthread_mutex_lock(&(squeue.flag_lock));
-						squeue.flag = 1;
+						squeue.request_flag = 1;
+						queue_put(&(squeue.request_queue), qi);
 						pthread_mutex_unlock(&(squeue.flag_lock));
-					} else if(u->action == CHANGE_RT){
-						print_debug("Update Route - Change RT %d\n", u->action);
-						pthread_mutex_lock(&(squeue.iff_list_lock));
-						add_route(sock, route, iff_list, virt_list);
-						pthread_mutex_unlock(&(squeue.iff_list_lock));
-					} else {
-						print_debug("Update Route - Unknown %d\n", u->action);
 					}
-				} else if(u->type == UPDATE_GATEWAY){
-
-					struct network_update *nupdate = 0;
-
-					nupdate = (struct network_update*)u->update;
-
-					if(!nupdate){
-						goto LOOP_END;
-					}
-
-					if(handle_gateway_update(nupdate,
-							iff_list, virt_list, sock, squeue))
-					{
-						print_debug("Network Update exited\n");
-						goto LOOP_END;
-					}
-
+				} else if(u->action == DEL_IP) {
+					print_debug("Update Address - Del IP\n");
+					pthread_mutex_lock(&(squeue.iff_list_lock));
+					delete_address_rtnl(addr, iff_list, virt_list);
+					pthread_mutex_unlock(&(squeue.iff_list_lock));
+				} else {
+					print_debug("Update Address - Unknown\n");
 				}
-LOOP_END:
-				printf("#######################\n");
-				printf("-----------------------\n");
-				printf("- Physical Interfaces -\n");
-				printf("-----------------------\n");
-				pthread_mutex_lock(&(squeue.iff_list_lock));
-				print_interface_list(iff_list);
-				pthread_mutex_unlock(&(squeue.iff_list_lock));
-				printf("-----------------------\n");
-				printf("- Virtual Interfaces  -\n");
-				printf("-----------------------\n");
-				print_interface_list(virt_list);
-				printf("#######################\n");
+			} else if(u->type == UPDATE_ROUTE){
+				struct rtnl_route *route = u->update;
+				print_debug("Recieved update route type: %d\n", u->action);
+				if(u->action == ADD_RT) {
+					print_debug("Update Route - Add RT\n");
+					pthread_mutex_lock(&(squeue.iff_list_lock));
+					add_route(sock, route, iff_list, virt_list);
+					pthread_mutex_unlock(&(squeue.iff_list_lock));
+
+					print_debug("Update Route - Completed\n");
+				} else if(u->action == DEL_RT) {
+					print_debug("Update Route - Del RT\n");
+					pthread_mutex_lock(&(squeue.iff_list_lock));
+					delete_route(sock, route, iff_list, virt_list);
+					pthread_mutex_unlock(&(squeue.iff_list_lock));
+
+					/*
+					* Tell the network thread
+					* there was an update to the list
+					*/
+					pthread_mutex_lock(&(squeue.flag_lock));
+					squeue.flag = 1;
+					pthread_mutex_unlock(&(squeue.flag_lock));
+				} else if(u->action == CHANGE_RT){
+					print_debug("Update Route - Change RT %d\n", u->action);
+					pthread_mutex_lock(&(squeue.iff_list_lock));
+					add_route(sock, route, iff_list, virt_list);
+					pthread_mutex_unlock(&(squeue.iff_list_lock));
+				} else {
+					print_debug("Update Route - Unknown %d\n", u->action);
+				}
+			} else if(u->type == UPDATE_GATEWAY){
+
+				struct network_update *nupdate = 0;
+
+				nupdate = (struct network_update*)u->update;
+
+				if(!nupdate){
+					goto LOOP_END;
+				}
+
+				if(handle_gateway_update(nupdate, iff_list,
+				  virt_list, sock, squeue))
+				{
+					print_debug("Network Update exited\n");
+					goto LOOP_END;
+				}
 			}
-			free(qitem);
 		}
-		printf("\n#######################\n");
-		print_debug("Cleaning up...\n");
-		clean_up_interfaces(sock, virt_list);
-		print_debug("Done\n");
-		return SUCCESS;
+LOOP_END:
+			printf("#######################\n");
+			printf("-----------------------\n");
+			printf("- Physical Interfaces -\n");
+			printf("-----------------------\n");
+			pthread_mutex_lock(&(squeue.iff_list_lock));
+			print_interface_list(iff_list);
+			pthread_mutex_unlock(&(squeue.iff_list_lock));
+			printf("-----------------------\n");
+			printf("- Virtual Interfaces  -\n");
+			printf("-----------------------\n");
+			print_interface_list(virt_list);
+			printf("#######################\n");
+
+			free(qitem);
+	}
+	printf("\n#######################\n");
+	print_debug("Cleaning up...\n");
+	clean_up_interfaces(sock, virt_list);
+	print_debug("Done\n");
+	return SUCCESS;
+}
+
+/*TODO let the main loop handle link deletion from the data structures*/
+int
+delete_old_routes(
+	struct network_update *nupdate,
+	List *virt_list,
+	List *iff_list,
+	struct nl_sock *sock,
+	int host_id)
+{
+	int idx = 0;
+	int exists = 0;
+	struct virtual_interface *virt = (struct virtual_interface*)0;
+	struct mpdpacket *pkt = (struct mpdpacket *)0;
+	int i = 0;
+	Litem *phys_vlist_item = (Litem*)0;
+
+	pkt = &(nupdate->pkt);
+
+	list_for_each(vitem, virt_list){
+		virt = vitem->data;
+
+		if(!virt) continue;
+
+		exists = 0;
+		for(idx = 0; idx < pkt->header->num; idx++){
+			struct mpdentry *entry = (pkt->entry)+idx;
+			int host_ip = 0;
+
+			host_ip = htonl((entry->netmask & entry->address) | htonl(host_id));
+
+			if(virt && virt->address == host_ip){
+				print_debug("Address already exists\n");
+				exists = 1;
+				break;
+			}
+		}
+
+		if(!exists){
+			/*Delete the virtual interface*/
+
+			/*Remove associated subnets*/
+			{
+				list_for_each(pitem, iff_list){
+					struct physical_interface *phys =
+						(struct physical_interface *)pitem->data;
+					if(phys->diss){
+						int j = 0;
+						list_for_each(pvitem, phys->virt_list){
+							if(virt->table == ((struct virtual_interface*)pvitem->data)->table){
+								phys_vlist_item = list_remove(phys->virt_list, j);
+								struct virtual_interface *pvirt = (struct virtual_interface*)phys_vlist_item->data;
+								delete_address(sock, pvirt->address, pvirt->netmask, pvirt->out->super.ifidx);
+								break;
+							}
+							j++;
+						}
+
+					}
+				}
+			}
+
+			/*Remove virtual address exit*/
+			delete_address(sock, virt->address, virt->netmask, virt->out->super.ifidx);
+
+			flush_table(sock, virt->table);
+		}
+		i++;
 	}
 
+	return SUCCESS;
+}
 
 /*
 *
@@ -372,7 +449,6 @@ handle_gateway_update(
 	struct physical_interface *phy;
 	uint32_t host_id = 0;
 	int idx = 0;
-	int i = 0;
 	int exists = 0;
 
 	print_debug("Update gateway\n");
@@ -385,6 +461,9 @@ handle_gateway_update(
 	pthread_mutex_unlock(&(squeue.iff_list_lock));
 
 	host_id = get_host_id(phy);
+
+	//delete_old_routes(nupdate, virt_list, iff_list, sock, host_id);
+
 	for(idx = 0; idx < pkt->header->num; idx++){
 		struct mpdentry *entry = (pkt->entry)+idx;
 		Litem *item;
@@ -396,21 +475,19 @@ handle_gateway_update(
 			return FAILURE;
 		}
 
-		//check IP doesnt already exist;
+		/*check IP doesnt already exist;*/
 		host_ip = htonl((entry->netmask & entry->address) | htonl(host_id));
 
 		print_debug("Lock ifflist\n");
 		pthread_mutex_lock(&(squeue.iff_list_lock));
-		for(i = 0; i < list_size(iff_list); i++){
-			temp_phys = (struct physical_interface*)
-							(list_get(iff_list, i))->data;
-			if(temp_phys){
-				if(temp_phys->address == host_ip){
-					print_debug("Address already exists, skipping\n");
-					exists = 1;
-					break;
-				}
+		list_for_each(pitem, iff_list){
+			temp_phys = (struct physical_interface*)pitem->data;
+			if(temp_phys && temp_phys->address == host_ip){
+				print_debug("Address already exists, skipping\n");
+				exists = 1;
+				break;
 			}
+
 		}
 		pthread_mutex_unlock(&(squeue.iff_list_lock));
 		print_debug("Unlock ifflist\n");
@@ -422,16 +499,13 @@ handle_gateway_update(
 		print_debug("Virt List: %p\n", virt_list);
 		print_debug("Virt List: %p\n", virt_list->front);
 
-		if(virt_list->front){
-			for(i = 0; i < list_size(virt_list); i++){
-				temp_virt = (struct virtual_interface*)
-					(list_get(virt_list, i))->data;
-				if(temp_virt){
-					if(temp_virt->address == host_ip){
-						print_debug("Address already exists\n");
-						exists = 1;
-						break;
-					}
+		if(virt_list){
+			list_for_each(vitem, virt_list){
+				temp_virt = (struct virtual_interface*)vitem->data;
+				if(temp_virt && temp_virt->address == host_ip){
+					print_debug("Address already exists\n");
+					exists = 1;
+					break;
 				}
 			}
 		}
@@ -512,11 +586,10 @@ handle_gateway_update(
 			route anyway.
 			*/
 			fprintf(stderr, "Failed to add address, for network update\n");
-			//continue;
 		}
+
 		pthread_mutex_unlock(&(squeue.iff_list_lock));
 		print_debug("Unlock ifflist\n");
-
 
 		print_debug("Create the default route\n");
 

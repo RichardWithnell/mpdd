@@ -493,11 +493,110 @@ add_addr (
 
 
 /*
-*
+* The address has been deleted by the system, delete from the appropriate data structures
 */
 int
-delete_addr(struct rtnl_addr *addr, List *iff, List *virt)
+delete_address_rtnl(struct rtnl_addr *addr, List *iff_list, List *virt_list)
 {
+    uint32_t vaddr = (uint32_t)0;
+    struct nl_addr* local = (struct nl_addr*)0;
+    char * label = (char*)0;
+
+    if(!addr){
+        print_debug("Addr struct is null\n");
+    }
+
+    local = rtnl_addr_get_local(addr);
+
+    if(nl_addr_iszero(local)){
+        print_debug("Address invalid\n");
+        return FAILURE;
+    }
+
+    vaddr = *(uint32_t*)nl_addr_get_binary_addr((struct nl_addr *)local);
+
+    label = rtnl_addr_get_label (addr);
+
+    if (strstr(label, ":") != NULL) {
+        Litem *temp_item = (Litem*)0;
+        print_debug("Deleting virtual address\n");
+        int i = 0;
+        list_for_each(vitem, virt_list){
+            struct virtual_interface *virt =
+                (struct virtual_interface *)vitem->data;
+
+            if(virt && vaddr == virt->address){
+
+                int j = 0;
+                list_for_each(pvitem, virt->attach->virt_list){
+                    struct virtual_interface *phys_virt =
+                        (struct virtual_interface *)pvitem->data;
+
+                    if(phys_virt && vaddr == phys_virt->address){
+                        temp_item = list_remove(virt->attach->virt_list, j);
+                        free(temp_item);
+                        break;
+                    }
+                    j++;
+                }
+
+                temp_item = list_remove(virt_list, i);
+                free(temp_item);
+                free(virt);
+                break;
+            }
+            i++;
+        }
+    } else {
+        print_debug("Deleting physical address\n");
+    }
+
+    return SUCCESS;
+}
+
+
+int
+delete_address(
+    struct nl_sock *sock,
+    uint32_t ip,
+    uint32_t netmask,
+    uint8_t ifidx)
+{
+    struct rtnl_addr *addr = (struct rtnl_addr*)0;
+    struct nl_addr *local = (struct nl_addr*)0;
+
+    addr = rtnl_addr_alloc();
+
+    if(!addr){
+        print_debug("Failed to allocate address\n");
+        return FAILURE;
+    }
+
+    local = nl_addr_build(AF_INET, &ip, sizeof(uint32_t));
+
+    if(!local){
+        print_debug("Failed to build address\n");
+        rtnl_addr_put(addr);
+        return FAILURE;
+    }
+
+    print_debug("Built address: %s\n",
+        ip_to_str(*(uint32_t*)nl_addr_get_binary_addr((struct nl_addr *)local)));
+
+    rtnl_addr_set_local (addr, local);
+    rtnl_addr_set_prefixlen(addr, lookup_cidr(netmask));
+    rtnl_addr_set_family (addr, AF_INET);
+    rtnl_addr_set_ifindex(addr, ifidx);
+
+    if(rtnl_addr_delete(sock, addr, 0)){
+        nl_addr_put(local);
+        rtnl_addr_put(addr);
+        return FAILURE;
+    }
+
+    nl_addr_put(local);
+
+rtnl_addr_put(addr);
     return SUCCESS;
 }
 
@@ -860,8 +959,8 @@ create_aliases_for_gw(
             v = add_virtual(iff->super.ifname, iff->super.ifidx, 0, virt_list);
             if(p->type == VIRTUAL_TYPE){
                 v->gateway = ((struct virtual_interface*)p)->gateway;
-
                 v->out = ((struct virtual_interface*)p)->out;
+                v->table = ((struct virtual_interface*)p)->table;
             } else {
                 v->gateway = ((struct physical_interface*)p)->gateway;
                 v->out = (struct physical_interface*)p;
@@ -1210,6 +1309,8 @@ print_interface(struct interface *i)
         printf("\tMask: %s\n", ip_to_str(htonl(iff->netmask)));
         printf("\tGateway: %s\n", ip_to_str(htonl(iff->gateway)));
         printf("\tExternal IP: %s\n", ip_to_str(htonl(iff->external_ip)));
+        printf("\tRT Table: %d\n", iff->table);
+        printf("\tDepth: %d\n", iff->depth);
     } else if(i->type == PHYSICAL_TYPE) {
         struct physical_interface * iff = (struct physical_interface*)i;
         printf("Physical Interface %d: %s Pointer(%p)\n",
