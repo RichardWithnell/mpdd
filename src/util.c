@@ -77,6 +77,17 @@ uint32_t lookup_cidr(uint32_t netmask)
 }
 
 
+
+/*
+* This works...
+*/
+uint32_t NumberOfSetBits(uint32_t i)
+{
+    i = i - ((i >> 1) & 0x55555555);
+    i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+    return (uint32_t)((((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24);
+}
+
 /********
 *
 * TODO this blocks the thread if there is no IP address... probably the same
