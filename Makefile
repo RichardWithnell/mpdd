@@ -4,17 +4,24 @@
 
 LIB_PATH = /usr/lib/
 INC_PATH = /usr/include/libnl3
-LDFLAGS = -lnl-3 -lrt -lnl-route-3
+LDFLAGS = -lnl-3 -lnl-route-3
 CC=gcc
 CFLAGS= -g -Wall
 
-ARCH:=$(shell uname -m)
+ifndef ARCH
+	ARCH:=$(shell uname -m)
+endif
 
-BUILD_PATH=build/$(ARCH)/
+ifeq ($(ARCH),sim)
+    CFLAGS += -fPIC
+    OPTS = -pie
+endif
+
 SRC_PATH=src/
+BUILD_PATH=build/$(ARCH)/
 BIN_PATH=bin/$(ARCH)/
-TEST_PATH=test/
-TEST_BIN=test_bin/
+TEST_PATH=test/$(ARCH)/
+TEST_BIN=test_bin/$(ARCH)/
 
 OBJS = $(BUILD_PATH)network.o \
        $(BUILD_PATH)link_monitor.o \
@@ -23,7 +30,6 @@ OBJS = $(BUILD_PATH)network.o \
        $(BUILD_PATH)config.o \
        $(BUILD_PATH)queue.o \
        $(BUILD_PATH)list.o
-
 
 TESTS = $(TEST_PATH)test_link_monitor
 
@@ -47,7 +53,7 @@ bin_arch_dir:
 	@if [ ! -d "$(BIN_PATH)" ]; then mkdir -p $(BIN_PATH); fi;
 
 mpdd: build_arch_dir bin_arch_dir $(SRC_PATH)mpdd.c $(OBJS)
-	$(CC) $(CFLAGS) -o $(BIN_PATH)mpdd $(SRC_PATH)mpdd.c $(OBJS) -I$(INC_PATH) $(LDFLAGS) -lpthread -lconfig
+	$(CC) $(CFLAGS) -o $(BIN_PATH)mpdd $(SRC_PATH)mpdd.c $(OPTS) $(OBJS) -I$(INC_PATH) $(LDFLAGS) -lpthread -lconfig
 
 $(BUILD_PATH)network.o: $(SRC_PATH)network.c $(SRC_PATH)network.h
 	$(CC) $(CFLAGS) -c $(SRC_PATH)network.c -I$(INC_PATH) $(LDFLAGS) -o $(BUILD_PATH)network.o
