@@ -36,15 +36,6 @@
 #include <pthread.h>
 
 #include "queue.h"
-enum {
-	NL_ACT_UNSPEC,
-	NL_ACT_NEW,
-	NL_ACT_DEL,
-	NL_ACT_GET,
-	NL_ACT_SET,
-	NL_ACT_CHANGE,
-	__NL_ACT_MAX,
-};
 struct cache_monitor {
     Queue *queue;
     pthread_mutex_t *lock;
