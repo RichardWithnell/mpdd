@@ -4,7 +4,7 @@
 
 LIB_PATH = /usr/lib/
 INC_PATH = /usr/include/libnl3
-LDFLAGS = -lnl-3 -lnl-route-3
+LDFLAGS = -lnl-3 -lnl-route-3 -lrt
 CC=gcc
 CFLAGS= -g -Wall
 
@@ -13,7 +13,7 @@ ifndef ARCH
 endif
 
 ifeq ($(ARCH),sim)
-    CFLAGS += -fPIC
+    CFLAGS += -fPIC -U_FORTIFY_SOURCE
     OPTS = -pie
 endif
 
@@ -56,19 +56,19 @@ mpdd: build_arch_dir bin_arch_dir $(SRC_PATH)mpdd.c $(OBJS)
 	$(CC) $(CFLAGS) -o $(BIN_PATH)mpdd $(SRC_PATH)mpdd.c $(OPTS) $(OBJS) -I$(INC_PATH) $(LDFLAGS) -lpthread -lconfig
 
 $(BUILD_PATH)network.o: $(SRC_PATH)network.c $(SRC_PATH)network.h
-	$(CC) $(CFLAGS) -c $(SRC_PATH)network.c -I$(INC_PATH) $(LDFLAGS) -o $(BUILD_PATH)network.o
+	$(CC) $(CFLAGS) -c $(SRC_PATH)network.c -I$(INC_PATH) $(LDFLAGS) $(OPTS) -o $(BUILD_PATH)network.o
 
 $(BUILD_PATH)link_monitor.o: $(SRC_PATH)link_monitor.c $(SRC_PATH)link_monitor.h
-	$(CC) $(CFLAGS) -c $(SRC_PATH)link_monitor.c -I$(INC_PATH) $(LDFLAGS) -o $(BUILD_PATH)link_monitor.o
+	$(CC) $(CFLAGS) -c $(SRC_PATH)link_monitor.c -I$(INC_PATH) $(LDFLAGS) $(OPTS) -o $(BUILD_PATH)link_monitor.o
 
 $(BUILD_PATH)interface.o: $(SRC_PATH)interface.c $(SRC_PATH)interface.h
-	$(CC) $(CFLAGS) -c $(SRC_PATH)interface.c -I$(INC_PATH) $(LDFLAGS) -o $(BUILD_PATH)interface.o
+	$(CC) $(CFLAGS) -c $(SRC_PATH)interface.c -I$(INC_PATH) $(LDFLAGS) $(OPTS) -o $(BUILD_PATH)interface.o
 
 $(BUILD_PATH)config.o: $(SRC_PATH)config.c $(SRC_PATH)config.h
-	$(CC) $(CFLAGS) -c $(SRC_PATH)config.c -I$(INC_PATH) -lconfig -o $(BUILD_PATH)config.o
+	$(CC) $(CFLAGS) -c $(SRC_PATH)config.c -I$(INC_PATH) $(OPTS) -lconfig -o $(BUILD_PATH)config.o
 
 $(BUILD_PATH)util.o: $(SRC_PATH)util.c $(SRC_PATH)util.h
-	$(CC) $(CFLAGS) -c $(SRC_PATH)util.c -I$(INC_PATH) $(LDFLAGS) -o $(BUILD_PATH)util.o
+	$(CC) $(CFLAGS) -c $(SRC_PATH)util.c -I$(INC_PATH) $(LDFLAGS) $(OPTS) -o $(BUILD_PATH)util.o
 
 $(BUILD_PATH)queue.o: $(SRC_PATH)queue.c $(SRC_PATH)queue.h
 	$(CC) $(CFLAGS) -c $(SRC_PATH)queue.c -o $(BUILD_PATH)queue.o
@@ -79,5 +79,3 @@ $(BUILD_PATH)list.o: $(SRC_PATH)list.c $(SRC_PATH)list.h
 clean:
 	@echo "Cleaning..."
 	- rm $(BUILD_PATH)* $(BIN_PATH)*
-
-

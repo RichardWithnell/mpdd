@@ -27,6 +27,7 @@
 #include <linux/if.h>
 #include <unistd.h>
 #include <signal.h>
+#include <time.h>
 
 #include "debug.h"
 #include "queue.h"
@@ -44,6 +45,8 @@
 static int running = 1;
 
 sem_t update_barrier;
+
+char host_id [16];
 
 int
 handle_gateway_update(
@@ -67,6 +70,13 @@ void sig_handler(int signum){
 	sem_post(&update_barrier);
 }
 
+void print_nexthop_cb(struct rtnl_nexthop *nh, void *args){
+	struct timespec monotime;
+	char buff[32];
+	struct nl_addr * gw = rtnl_route_nh_get_gateway(nh);
+	clock_gettime(CLOCK_MONOTONIC, &monotime);
+	print_log("New Route: %s - %lld.%.9ld\n", nl_addr2str(gw, buff, (size_t)32), (long long)monotime.tv_sec, (long)monotime.tv_nsec);
+}
 
 /*
 *
@@ -74,9 +84,7 @@ void sig_handler(int signum){
 int
 main(int argc, char *argv[])
 {
-
 	struct nl_sock *sock = (struct nl_sock*)0;
-
 	struct mpd_config *config = (struct mpd_config*)0;
 
 	List *iff_list = 0;
@@ -91,6 +99,10 @@ main(int argc, char *argv[])
 	pthread_mutex_t update_lock;
 	Queue update_queue;
 	struct send_queue squeue;
+
+	print_debug("LIBNL: %d.%d.%d\n", LIBNL_VER_MAJ, LIBNL_VER_MIN, LIBNL_VER_MIC);
+
+	memset(host_id, 0, 16);
 
 	/*Setup libnl socket*/
 	if(!(sock = nl_socket_alloc())){
@@ -302,7 +314,6 @@ main(int argc, char *argv[])
 					pthread_mutex_lock(&(squeue.iff_list_lock));
 					delete_route(sock, route, iff_list, virt_list);
 					pthread_mutex_unlock(&(squeue.iff_list_lock));
-
 					/*
 					* Tell the network thread
 					* there was an update to the list
@@ -318,6 +329,9 @@ main(int argc, char *argv[])
 				} else {
 					print_debug("Update Route - Unknown %d\n", u->action);
 				}
+				#ifdef LOG
+				rtnl_route_foreach_nexthop (route, print_nexthop_cb, 0);
+				#endif
 			} else if(u->type == UPDATE_GATEWAY){
 
 				struct network_update *nupdate = 0;
@@ -337,6 +351,7 @@ main(int argc, char *argv[])
 			}
 		}
 LOOP_END:
+			/*
 			printf("#######################\n");
 			printf("-----------------------\n");
 			printf("- Physical Interfaces -\n");
@@ -349,13 +364,15 @@ LOOP_END:
 			printf("-----------------------\n");
 			print_interface_list(virt_list);
 			printf("#######################\n");
-
+			*/
 			free(qitem);
 	}
-	printf("\n#######################\n");
-	print_debug("Cleaning up...\n");
+
+	//printf("\n#######################\n");
+	//print_debug("Cleaning up...\n");
+
 	clean_up_interfaces(sock, virt_list);
-	print_debug("Done\n");
+	//print_debug("Done\n");
 	return SUCCESS;
 }
 

@@ -38,7 +38,7 @@
 */
 struct mpd_config * load_config(char *path)
 {
-
+    const char *host_id;
     struct mpd_config *mpd = (struct mpd_config*)0;
     config_t *conf = (config_t*)0;
     config_t cfg;
@@ -92,6 +92,12 @@ struct mpd_config * load_config(char *path)
         free(diss);
         free(mpd);
         return 0;
+    }
+
+    if(config_lookup_string(conf, "host_id", &host_id) == CONFIG_FALSE){
+        print_debug("No host_id value, using default\n");
+
+        //strcpy(host_id, "def_host\0");
     }
 
     if(config_lookup_bool(conf, "application.host", &host) == CONFIG_FALSE){
@@ -179,6 +185,7 @@ struct mpd_config * load_config(char *path)
 
     config_destroy(conf);
 
+    memcpy(mpd->host_id, host_id, 16);
     mpd->host = host;
     mpd->ignore = ignore;
     mpd->diss = diss;

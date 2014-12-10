@@ -19,11 +19,19 @@
 #ifndef __DEBUG_H__
 #define __DEBUG_H__
 
-#define DEBUG
-#define ERROR
-#define VERBOSE
-
 #include <stdio.h>
+#include <time.h>
+
+//#define DEBUG
+//#define ERROR
+//#define VERBOSE
+#define LOG
+
+#ifdef LOG
+#define DO_LOG 1
+#else
+#define DO_LOG 0
+#endif
 
 #ifdef DEBUG
 #define DO_DEBUG 1
@@ -42,6 +50,10 @@
 #else
 #define DO_VERB 0
 #endif
+
+#define print_log(fmt, ...) \
+        do { if(DO_LOG) fprintf(stderr,  "LOG:%s:%d:%s(): " fmt, __FILE__, \
+                                __LINE__, __func__, ## __VA_ARGS__); } while (0)
 
 #define print_error(fmt, ...) \
         do { if(DO_ERROR) fprintf(stderr, "ERROR:%s:%d:%s(): " fmt, __FILE__, \

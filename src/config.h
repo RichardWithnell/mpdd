@@ -3,6 +3,7 @@
 struct mpd_config {
     List *ignore;
     List *diss;
+    char host_id[16];
     int host;
 };
 
