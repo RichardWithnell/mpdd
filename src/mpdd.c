@@ -28,6 +28,9 @@
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "debug.h"
 #include "queue.h"
@@ -99,6 +102,14 @@ main(int argc, char *argv[])
 	pthread_mutex_t update_lock;
 	Queue update_queue;
 	struct send_queue squeue;
+    struct stat fileStat;
+
+	if(stat(CONFIG_FILE, &fileStat)){
+		print_error("Config file not found: %s\n", CONFIG_FILE);
+		return -1;
+	} else {
+		print_debug("Found config file: %s\n", CONFIG_FILE);
+	}
 
 	print_debug("LIBNL: %d.%d.%d\n", LIBNL_VER_MAJ, LIBNL_VER_MIN, LIBNL_VER_MIC);
 
