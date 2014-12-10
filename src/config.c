@@ -26,11 +26,149 @@
 #include "config.h"
 #include "debug.h"
 
+#define MAX_LINE_SIZE 512
 
 #if (((LIBCONFIG_VER_MAJOR == 1) && (LIBCONFIG_VER_MINOR >= 4)) \
     || (LIBCONFIG_VER_MAJOR > 1))
 /* use features present in libconfig 1.4 and later */
 #endif
+
+struct mpd_config * load_min_config(char *path)
+{
+    FILE *fp;
+    const char *host_id;
+    char *line_in = (char*)0;
+    char *tok = (char*)0;
+    struct mpd_config *mpd = (struct mpd_config*)0;
+    int host = 0;
+    int read = 0;
+    List *ignore = (List*)0;
+    List *diss = (List*)0;
+
+    if(!path){
+        print_debug("Failed to load config, path is NULL.\n");
+        return 0;
+    }
+
+    if(!(line_in = malloc(MAX_LINE_SIZE))) {
+        log_error("Failed to allocate memory for line_in\n");
+        errno = ENOMEM;
+        return 0;
+    }
+
+    if(!(host_id = malloc(16))) {
+        log_error("Failed to allocate memory for host_id\n");
+        errno = ENOMEM;
+        return 0;
+    }
+
+    if(!(mpd = malloc(sizeof(struct mpd_config)))){
+        log_error("Failed to allocate memory for mpd config\n");
+        errno = ENOMEM;
+        return 0;
+    }
+
+    mpd->host = 0;
+    mpd->diss = (List*)0;
+    mpd->ignore = (List*)0;
+
+    if(!(ignore = malloc(sizeof(List)))) {
+        log_error("Failed to allocate memory for ignore interface list\n");
+        errno = ENOMEM;
+        free(mpd);
+        return 0;
+    }
+
+    if(!(diss = malloc(sizeof(List)))) {
+        log_error("Failed to allocate memory for diss interface list\n");
+        errno = ENOMEM;
+        free(ignore);
+        free(mpd);
+        return 0;
+    }
+
+    fp = fopen(path, "r"); // read mode
+    if(!fp){
+        print_error("Failed to open config file: %s\n", path);
+        return 0;
+    }
+
+    /*Read Hostname*/
+    memset(line_in, 0, MAX_LINE_SIZE);
+    read = getline(&line_in, MAX_LINE_SIZE-1, fp);
+    if(!read){
+        print_debug("Failed parsing file\n");
+        return 0;
+    }
+    memcpy(host_id, line_in, MAX_HOST_ID_SIZE-1);
+
+    /*Read Dissemination Interfaces*/
+    memset(line_in, 0, MAX_LINE_SIZE);
+    read = getline(&line_in, MAX_LINE_SIZE, fp);
+    if(!read){
+        print_debug("Failed parsing file\n");
+        return 0;
+    }
+    tok = strtok (str,",");
+    while(tok) {
+        if(!(item = malloc(sizeof(Litem)))){
+            list_destroy(ignore);
+            list_destroy(diss);
+            free(mpd);
+            errno = ENOMEM;
+            return 0;
+        }
+
+        if(!(item->data = malloc(strlen(tok)+1))){
+            free(item);
+            free(ignore);
+            free(diss);
+            free(mpd);
+            errno = ENOMEM;
+            return 0;
+        }
+
+        memset(item->data, 0, strlen(tok)+1);
+        strncpy(item->data, tok, strlen(tok));
+        list_put(diss, item);
+
+        tok = strtok (NULL, ",");
+    }
+
+    /*Read Ignore Interfaces*/
+    memset(line_in, 0, MAX_LINE_SIZE);
+    read = getline(&line_in, MAX_LINE_SIZE, fp);
+    if(!read){
+        print_debug("Failed parsing file\n");
+        return 0;
+    }
+    tok = strtok (str,",");
+    while(tok) {
+        if(!(item = malloc(sizeof(Litem)))){
+            list_destroy(ignore);
+            list_destroy(diss);
+            free(mpd);
+            errno = ENOMEM;
+            return 0;
+        }
+
+        if(!(item->data = malloc(strlen(tok)+1))){
+            free(item);
+            free(ignore);
+            free(diss);
+            free(mpd);
+            errno = ENOMEM;
+            return 0;
+        }
+
+        memset(item->data, 0, strlen(tok)+1);
+        strncpy(item->data, tok, strlen(tok));
+        list_put(ignore, item);
+
+        tok = strtok (NULL, ",");
+    }
+
+}
 
 
 /**
@@ -55,7 +193,7 @@ struct mpd_config * load_config(char *path)
     }
 
     if(!(mpd = malloc(sizeof(struct mpd_config)))){
-        fprintf(stderr, "Failed to allocate memory for diss interface list\n");
+        log_error("Failed to allocate memory for diss interface list\n");
         errno = ENOMEM;
         return 0;
     }
@@ -65,14 +203,14 @@ struct mpd_config * load_config(char *path)
     mpd->ignore = (List*)0;
 
     if(!(ignore = malloc(sizeof(List)))) {
-        fprintf(stderr, "Failed to allocate memory for ignore interface list\n");
+        log_error("Failed to allocate memory for ignore interface list\n");
         errno = ENOMEM;
         free(mpd);
         return 0;
     }
 
     if(!(diss = malloc(sizeof(List)))) {
-        fprintf(stderr, "Failed to allocate memory for diss interface list\n");
+        log_error("Failed to allocate memory for diss interface list\n");
         errno = ENOMEM;
         free(ignore);
         free(mpd);
@@ -82,12 +220,17 @@ struct mpd_config * load_config(char *path)
     conf = &cfg; /*Filthy*/
     config_init (conf);
 
+    if(!conf){
+        print_error("Config file is null.");
+        return 0;
+    }
+
     if(config_read_file(conf, path) == CONFIG_FALSE){
-        print_debug("Failed to parse config file.\n");
-        fprintf(stderr, "Failed parsing config: %s : %d : %s\n",
+        print_error("Failed parsing config: %s : %d : %s : %d\n",
              config_error_file(conf),
              config_error_line(conf),
-             config_error_text(conf));
+             config_error_text(conf),
+             (int)config_error_type(conf));
         free(ignore);
         free(diss);
         free(mpd);
