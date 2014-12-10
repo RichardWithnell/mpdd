@@ -23,7 +23,7 @@
 #include <time.h>
 
 //#define DEBUG
-//#define ERROR
+#define ERROR
 //#define VERBOSE
 #define LOG
 

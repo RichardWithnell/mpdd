@@ -43,7 +43,7 @@
 
 #define MAX_DEPTH 255
 
-#define CONFIG_FILE "/etc/mpd/mpdd.conf"
+#define CONFIG_FILE "/etc/mpd/mpdd_simple.conf"
 
 static int running = 1;
 
@@ -183,7 +183,7 @@ main(int argc, char *argv[])
 		return FAILURE;
 	}
 	print_debug("Loading Config\n");
-	config = load_config(CONFIG_FILE);
+	config = load_min_config(CONFIG_FILE);
 	if(!config){
 		print_debug("Loading the configuration file failed\n");
 		return FAILURE;

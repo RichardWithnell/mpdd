@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "debug.h"
+#include "util.h"
 
 #define MAX_LINE_SIZE 512
 
@@ -36,11 +37,11 @@
 struct mpd_config * load_min_config(char *path)
 {
     FILE *fp;
-    const char *host_id;
+    char *host_id = (char*)0;
     char *line_in = (char*)0;
     char *tok = (char*)0;
+    int max_size = MAX_LINE_SIZE;
     struct mpd_config *mpd = (struct mpd_config*)0;
-    int host = 0;
     int read = 0;
     List *ignore = (List*)0;
     List *diss = (List*)0;
@@ -51,19 +52,19 @@ struct mpd_config * load_min_config(char *path)
     }
 
     if(!(line_in = malloc(MAX_LINE_SIZE))) {
-        log_error("Failed to allocate memory for line_in\n");
+        print_error("Failed to allocate memory for line_in\n");
         errno = ENOMEM;
         return 0;
     }
 
-    if(!(host_id = malloc(16))) {
-        log_error("Failed to allocate memory for host_id\n");
+    if(!(host_id = malloc(MAX_HOST_ID_SIZE))) {
+        print_error("Failed to allocate memory for host_id\n");
         errno = ENOMEM;
         return 0;
     }
 
     if(!(mpd = malloc(sizeof(struct mpd_config)))){
-        log_error("Failed to allocate memory for mpd config\n");
+        print_error("Failed to allocate memory for mpd config\n");
         errno = ENOMEM;
         return 0;
     }
@@ -73,14 +74,14 @@ struct mpd_config * load_min_config(char *path)
     mpd->ignore = (List*)0;
 
     if(!(ignore = malloc(sizeof(List)))) {
-        log_error("Failed to allocate memory for ignore interface list\n");
+        print_error("Failed to allocate memory for ignore interface list\n");
         errno = ENOMEM;
         free(mpd);
         return 0;
     }
 
     if(!(diss = malloc(sizeof(List)))) {
-        log_error("Failed to allocate memory for diss interface list\n");
+        print_error("Failed to allocate memory for diss interface list\n");
         errno = ENOMEM;
         free(ignore);
         free(mpd);
@@ -93,24 +94,33 @@ struct mpd_config * load_min_config(char *path)
         return 0;
     }
 
+    list_init(ignore);
+    list_init(diss);
+
     /*Read Hostname*/
     memset(line_in, 0, MAX_LINE_SIZE);
-    read = getline(&line_in, MAX_LINE_SIZE-1, fp);
+    memset(host_id, 0, MAX_HOST_ID_SIZE);
+    read = getline(&line_in, (size_t*)&max_size, fp);
     if(!read){
         print_debug("Failed parsing file\n");
         return 0;
     }
-    memcpy(host_id, line_in, MAX_HOST_ID_SIZE-1);
+    char *strptr = line_in;
+    strptr = trimwhitespace(strptr);
+    memcpy(host_id, strptr, strlen(strptr));
+    print_log("ID: %s\n", host_id);
 
     /*Read Dissemination Interfaces*/
     memset(line_in, 0, MAX_LINE_SIZE);
-    read = getline(&line_in, MAX_LINE_SIZE, fp);
+    read = getline(&line_in, (size_t*)&max_size, fp);
     if(!read){
         print_debug("Failed parsing file\n");
         return 0;
     }
-    tok = strtok (str,",");
+    tok = strtok(line_in, ",");
     while(tok) {
+        Litem *item = (Litem*)0;
+        //tok = trimwhitespace(tok);
         if(!(item = malloc(sizeof(Litem)))){
             list_destroy(ignore);
             list_destroy(diss);
@@ -131,19 +141,21 @@ struct mpd_config * load_min_config(char *path)
         memset(item->data, 0, strlen(tok)+1);
         strncpy(item->data, tok, strlen(tok));
         list_put(diss, item);
-
+        print_log("Diss Iff: %s\n", tok);
         tok = strtok (NULL, ",");
     }
 
     /*Read Ignore Interfaces*/
     memset(line_in, 0, MAX_LINE_SIZE);
-    read = getline(&line_in, MAX_LINE_SIZE, fp);
+    read = getline(&line_in, (size_t*)&max_size, fp);
     if(!read){
         print_debug("Failed parsing file\n");
         return 0;
     }
-    tok = strtok (str,",");
+    tok = strtok(line_in, ",");
     while(tok) {
+        Litem *item = (Litem*)0;
+        //tok = trimwhitespace(tok);
         if(!(item = malloc(sizeof(Litem)))){
             list_destroy(ignore);
             list_destroy(diss);
@@ -164,10 +176,21 @@ struct mpd_config * load_min_config(char *path)
         memset(item->data, 0, strlen(tok)+1);
         strncpy(item->data, tok, strlen(tok));
         list_put(ignore, item);
+        print_log("Log Iff: %s\n", tok);
 
         tok = strtok (NULL, ",");
     }
 
+    memcpy(mpd->host_id, host_id, MAX_HOST_ID_SIZE-1);
+    mpd->host = 1;
+    mpd->ignore = ignore;
+    mpd->diss = diss;
+    print_log("Config Loaded\n");
+
+    free(line_in);
+    free(host_id);
+
+    return mpd;
 }
 
 
@@ -193,7 +216,7 @@ struct mpd_config * load_config(char *path)
     }
 
     if(!(mpd = malloc(sizeof(struct mpd_config)))){
-        log_error("Failed to allocate memory for diss interface list\n");
+        print_error("Failed to allocate memory for diss interface list\n");
         errno = ENOMEM;
         return 0;
     }
@@ -203,14 +226,14 @@ struct mpd_config * load_config(char *path)
     mpd->ignore = (List*)0;
 
     if(!(ignore = malloc(sizeof(List)))) {
-        log_error("Failed to allocate memory for ignore interface list\n");
+        print_error("Failed to allocate memory for ignore interface list\n");
         errno = ENOMEM;
         free(mpd);
         return 0;
     }
 
     if(!(diss = malloc(sizeof(List)))) {
-        log_error("Failed to allocate memory for diss interface list\n");
+        print_error("Failed to allocate memory for diss interface list\n");
         errno = ENOMEM;
         free(ignore);
         free(mpd);

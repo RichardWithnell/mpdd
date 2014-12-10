@@ -9,6 +9,7 @@ struct mpd_config {
     int host;
 };
 
+struct mpd_config * load_min_config(char *path);
 struct mpd_config * load_config(char *path);
 
 /* end file: config.h */
