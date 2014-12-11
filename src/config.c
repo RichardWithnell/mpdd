@@ -34,6 +34,33 @@
 /* use features present in libconfig 1.4 and later */
 #endif
 
+/*Quick and dirty, should realloc xbytes instead of alloc max_size*/
+int readline(char **line, size_t* max_size, FILE *fp)
+{
+    char c = 0;
+    int size = *max_size;
+    char *ptr = (char*)0;
+    *line = malloc(sizeof(char) * size);
+
+    ptr = *line;
+    memset(ptr, 0, sizeof(char) * size);
+
+    if(max_size <= 0){
+        return 0;
+    }
+
+    if(!fp){
+        return -1;
+    }
+
+    while((c = getc(fp)) != '\n' && c != EOF && (ptr-*line) < size-1){
+        *ptr++ = c;
+    }
+
+    *ptr = '\0';
+    return (int)(ptr-*line);
+}
+
 struct mpd_config * load_min_config(char *path)
 {
     FILE *fp;
@@ -45,6 +72,8 @@ struct mpd_config * load_min_config(char *path)
     int read = 0;
     List *ignore = (List*)0;
     List *diss = (List*)0;
+
+    printf("load_min_config\n");
 
     if(!path){
         print_debug("Failed to load config, path is NULL.\n");
@@ -100,11 +129,17 @@ struct mpd_config * load_min_config(char *path)
     /*Read Hostname*/
     memset(line_in, 0, MAX_LINE_SIZE);
     memset(host_id, 0, MAX_HOST_ID_SIZE);
-    read = getline(&line_in, (size_t*)&max_size, fp);
+    printf("Read Line\n");
+
+    read = readline(&line_in, (size_t*)&max_size, fp);
     if(!read){
         print_debug("Failed parsing file\n");
         return 0;
     }
+
+    printf("Read Line Done\n");
+
+
     char *strptr = line_in;
     strptr = trimwhitespace(strptr);
     memcpy(host_id, strptr, strlen(strptr));
@@ -112,7 +147,7 @@ struct mpd_config * load_min_config(char *path)
 
     /*Read Dissemination Interfaces*/
     memset(line_in, 0, MAX_LINE_SIZE);
-    read = getline(&line_in, (size_t*)&max_size, fp);
+    read = readline(&line_in, (size_t*)&max_size, fp);
     if(!read){
         print_debug("Failed parsing file\n");
         return 0;
@@ -147,7 +182,7 @@ struct mpd_config * load_min_config(char *path)
 
     /*Read Ignore Interfaces*/
     memset(line_in, 0, MAX_LINE_SIZE);
-    read = getline(&line_in, (size_t*)&max_size, fp);
+    read = readline(&line_in, (size_t*)&max_size, fp);
     if(!read){
         print_debug("Failed parsing file\n");
         return 0;
