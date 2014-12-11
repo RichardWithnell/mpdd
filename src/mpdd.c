@@ -31,6 +31,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include "debug.h"
 #include "queue.h"
@@ -43,7 +44,7 @@
 
 #define MAX_DEPTH 255
 
-#define CONFIG_FILE "/etc/mpd/mpdd_simple.conf"
+#define DEF_CONFIG_FILE "/etc/mpd/mpdd_simple.conf"
 
 static int running = 1;
 
@@ -102,14 +103,67 @@ main(int argc, char *argv[])
 	pthread_mutex_t update_lock;
 	Queue update_queue;
 	struct send_queue squeue;
-    struct stat fileStat;
 
-	if(stat(CONFIG_FILE, &fileStat)){
-		print_error("Config file not found: %s\n", CONFIG_FILE);
+	/*Define options for command line args*/
+	struct stat fileStat;
+	int c = 0;
+	char *config_path = (char*)0;
+	int minimal_config = 0;
+
+	static struct option long_options[] = {
+		{"conf", required_argument, 0, 'c'},
+		{"minimal-conf", required_argument, 0, 'C'},
+		{0, 0, 0, 0}
+	};
+
+	while(1){
+		int option_index = 0;
+		c = getopt_long(argc, argv, "c:C:", long_options, &option_index);
+		if (c == -1) {
+			break;
+		}
+		switch(c){
+			case 'c':
+				if(optarg){
+					int pathlength = strlen(optarg);
+					print_debug("conf set: %d\n", pathlength);
+					config_path = malloc(pathlength+1);
+					strcpy(config_path, optarg);
+				}
+				break;
+			case 'C':
+				if(optarg){
+					minimal_config = 1;
+					int pathlength = strlen(optarg);
+					print_debug("min config set: %d\n", pathlength);
+					config_path = malloc(pathlength+1);
+					strcpy(config_path, optarg);
+				}
+				break;
+			case '?':
+	            break;
+			default:
+				return -1;
+		}
+	}
+
+	if(!config_path){
+		config_path = malloc(strlen(DEF_CONFIG_FILE));
+		strcpy(config_path, DEF_CONFIG_FILE);
+	}
+
+	printf("1 Config file not found: %s\n", config_path);
+
+
+	if(stat(config_path, &fileStat)){
+		print_error("Config file not found: %s\n", config_path);
 		return -1;
 	} else {
-		print_debug("Found config file: %s\n", CONFIG_FILE);
+		print_debug("Found config file: %s\n", config_path);
 	}
+
+	printf("2 Config file not found: %s\n", config_path);
+
 
 	print_debug("LIBNL: %d.%d.%d\n", LIBNL_VER_MAJ, LIBNL_VER_MIN, LIBNL_VER_MIC);
 
@@ -182,12 +236,19 @@ main(int argc, char *argv[])
 		printf("Queue init failed\n");
 		return FAILURE;
 	}
-	print_debug("Loading Config\n");
-	config = load_min_config(CONFIG_FILE);
+	print_debug("Loading Config %d\n", minimal_config);
+	printf("Loading config: %s\n", config_path);
+
+	if(minimal_config){
+		config = load_min_config(config_path);
+	} else {
+		config = load_config(config_path);
+	}
 	if(!config){
 		print_debug("Loading the configuration file failed\n");
 		return FAILURE;
 	}
+	free(config_path);
 	diss_list = config->diss;
 	ignore_list = config->ignore;
 
