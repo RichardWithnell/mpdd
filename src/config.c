@@ -43,7 +43,10 @@ int readline(char **line, size_t* max_size, FILE *fp)
     *line = malloc(sizeof(char) * size);
 
     ptr = *line;
-    memset(ptr, 0, sizeof(char) * size);
+
+    if(!line){
+        return 0;
+    }
 
     if(max_size <= 0){
         return 0;
@@ -53,7 +56,7 @@ int readline(char **line, size_t* max_size, FILE *fp)
         return -1;
     }
 
-    while((c = getc(fp)) != '\n' && c != EOF && (ptr-*line) < size-1){
+    while((c = fgetc(fp)) != '\n' && c != EOF && (ptr-*line) < size-1){
         *ptr++ = c;
     }
 
