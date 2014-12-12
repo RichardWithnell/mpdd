@@ -18,6 +18,7 @@
 
 #include "network.h"
 #include "debug.h"
+#include <unistd.h>
 
 
 /*
@@ -98,13 +99,15 @@ void* recv_broadcast(struct send_queue *squeue)
     fd_set rfds;
     fd_set efds;
 
-    print_debug("\n");
+    print_debug("Thread started\n");
 
     if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0){
         /*Cleanup*/
         perror("create_socket() - socket()");
         return (void*)FAILURE;
     }
+
+    print_debug("Set socket option\n");
 
     if (setsockopt(sock,
                    SOL_SOCKET,
@@ -121,6 +124,7 @@ void* recv_broadcast(struct send_queue *squeue)
     saddr.sin_port = (in_port_t)htons(MPD_BROADCAST_PORT);
     saddr.sin_addr.s_addr = INADDR_ANY;
 
+    print_debug("Try and bind\n");
     if(bind(sock,
             (struct sockaddr *)&(saddr),
             (socklen_t )sizeof(struct sockaddr_in)))
@@ -136,6 +140,7 @@ void* recv_broadcast(struct send_queue *squeue)
     buff = malloc(512);
 
     mon = squeue->mon_data;
+    print_debug("Entering main loop\n");
 
     while(squeue->running) {
         struct mpdpacket *pkt = 0;
@@ -150,8 +155,11 @@ void* recv_broadcast(struct send_queue *squeue)
         FD_SET(sock, &rfds);
         FD_SET(sock, &wfds);
         FD_SET(sock, &efds);
+        print_debug("Select()\n");
 
+        //ret = select(maxfd, &rfds, &wfds, &efds, &tv);
         ret = select(maxfd, &rfds, &wfds, &efds, &tv);
+
         if (ret > 0){
             exists = 0;
             if(FD_ISSET(sock, &rfds)) {
@@ -292,6 +300,10 @@ void* recv_broadcast(struct send_queue *squeue)
             } else if(FD_ISSET(sock, &efds)) {
                 print_debug("Error FDS Set\n");
             }
+            #ifdef DCE_NS3_FIX
+            print_debug("NS3FixSleep(1)\n");
+            sleep(1);
+            #endif
             select(0, 0, 0, 0, &tv);
             free(pkt);
         } else if(!ret){
