@@ -64,7 +64,6 @@ handle_gateway_update(
 void sig_handler(int signum);
 int cleanup();
 
-
 /*
 *
 */
@@ -169,7 +168,8 @@ main(int argc, char *argv[])
 	} else {
 		char pid_buff[128];
 		snprintf(pid_buff, 128, "%ld\n", (long)getpid());
-     	if (write(pid_fd, pid_buff, strlen(pid_buff)) != strlen(pid_buff)){
+
+    if (write(pid_fd, pid_buff, strlen(pid_buff)) != strlen(pid_buff)){
 			print_error("Could not write to pid file.\n");
 			return -1;
 		}
@@ -185,30 +185,30 @@ main(int argc, char *argv[])
 
 	/*Setup libnl socket*/
 	if(!(sock = nl_socket_alloc())){
-		fprintf(stderr, "Alloc nl sock failed\n");
+		print_error("Alloc nl sock failed\n");
 		return -1;
 	}
 	/*Connect to the link module*/
 	if(nl_connect(sock, NETLINK_ROUTE)){
-		fprintf(stderr, "Connect nl sock failed\n");
+		print_error("Connect nl sock failed\n");
 		nl_socket_free(sock);
 		return -1;
 	}
 
 	/*Register signal handler*/
 	if (signal(SIGINT, sig_handler) == SIG_ERR) {
-		fprintf(stderr, "Failed to register signal handler\n");
+		print_error("Failed to register signal handler\n");
 		return FAILURE;
 	}
 
 	if(!(iff_list = malloc(sizeof(List)))) {
-		fprintf(stderr, "Failed to allocate memory for phys interface list\n");
+		print_error("Failed to allocate memory for phys interface list\n");
 		errno = ENOMEM;
 		return FAILURE;
 	}
 
 	if(!(virt_list = malloc(sizeof(List)))) {
-		fprintf(stderr, "Failed to allocate memory for virt interface list\n");
+		print_error("Failed to allocate memory for virt interface list\n");
 		errno = ENOMEM;
 		return FAILURE;
 	}
@@ -217,32 +217,32 @@ main(int argc, char *argv[])
 	list_init(virt_list);
 
 	if (pthread_mutex_init(&(squeue.flag_lock), NULL) != 0) {
-		fprintf(stderr, "Update mutex init failed\n");
+		print_error("Update mutex init failed\n");
 		return FAILURE;
 	}
 
 	if (pthread_mutex_init(&(squeue.request_flag_lock), NULL) != 0) {
-		fprintf(stderr, "Update mutex init failed\n");
+		print_error("Update mutex init failed\n");
 		return FAILURE;
 	}
 
 	if (pthread_mutex_init(&(squeue.iff_list_lock), NULL) != 0) {
-		fprintf(stderr, "Update mutex init failed\n");
+		print_error("Update mutex init failed\n");
 		return FAILURE;
 	}
 
 	if (pthread_mutex_init(&(squeue.virt_list_lock), NULL) != 0) {
-		fprintf(stderr, "Update mutex init failed\n");
+		print_error("Update mutex init failed\n");
 		return FAILURE;
 	}
 
 	if (pthread_mutex_init(&update_lock, NULL) != 0) {
-		fprintf(stderr, "Update mutex init failed\n");
+		print_error("Update mutex init failed\n");
 		return FAILURE;
 	}
 
 	if (sem_init(&update_barrier, 0, 0) != 0) {
-		fprintf(stderr, "Update barrier init failed\n");
+		print_error("Update barrier init failed\n");
 		return FAILURE;
 	}
 
