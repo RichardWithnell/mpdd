@@ -104,7 +104,7 @@ void change_route_cb(void *arg, struct nl_object *obj, int action)
     item->next = 0;
     item->data = update;
 
-	print_debug("add to queue\n");
+    print_debug("add to queue\n");
     pthread_mutex_lock(mon->lock);
     queue_put(mon->queue, item);
     pthread_mutex_unlock(mon->lock);
@@ -160,8 +160,7 @@ void change_addr_cb(void *arg, struct nl_object *obj, int action)
 
     item->next = 0;
     item->data = update;
-
-	print_debug("add to queue\n");
+    print_debug("add to queue \n");
 
     pthread_mutex_lock(mon->lock);
     queue_put(mon->queue, item);
@@ -215,11 +214,11 @@ void change_link_cb(void *arg, struct nl_object *obj, int action)
 
     item->next = 0;
     item->data = update;
-	print_debug("add to queue\n");
+    print_debug("add to queue\n");
     pthread_mutex_lock(mon->lock);
     queue_put(mon->queue, item);
     pthread_mutex_unlock(mon->lock);
-	print_debug("sem_post\n");
+    print_debug("sem_post\n");
     sem_post(mon->barrier);
 }
 
@@ -298,16 +297,17 @@ void init_monitor(void *data)
     }
 
 	print_debug("add addr\n");
-
     if((ret = nl_cache_mngr_add(mngr, "route/addr", (change_func_t)&cache_update, mon, &(mon->addr_cache)))){
         nl_perror(ret, 0);
         pthread_exit(&ret);
     }
+
 	print_debug("add link\n");
     if((ret = nl_cache_mngr_add(mngr, "route/link", (change_func_t)&cache_update, mon, &(mon->link_cache)))){
         nl_perror(ret, 0);
         pthread_exit(&ret);
     }
+
 	print_debug("add route\n");
     if((ret = nl_cache_mngr_add(mngr, "route/route", (change_func_t)&cache_update, mon, &( mon->route_cache)))){
         nl_perror(ret, 0);
