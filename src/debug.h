@@ -22,9 +22,9 @@
 #include <stdio.h>
 #include <time.h>
 
-//#define DEBUG
+#define DEBUG
 #define ERROR
-//#define VERBOSE
+#define VERBOSE
 #define LOG
 
 #ifdef LOG
@@ -52,7 +52,7 @@
 #endif
 
 #define print_log(fmt, ...) \
-        do { if(DO_LOG) fprintf(stderr,  "LOG:%s:%d:%s(): " fmt, __FILE__, \
+        do { if(DO_LOG) fprintf(stdout,  "LOG:%s:%d:%s(): " fmt, __FILE__, \
                                 __LINE__, __func__, ## __VA_ARGS__); } while (0)
 
 #define print_error(fmt, ...) \
