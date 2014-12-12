@@ -32,6 +32,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <fcntl.h>
 
 #include "debug.h"
 #include "queue.h"
@@ -152,9 +153,6 @@ main(int argc, char *argv[])
 		strcpy(config_path, DEF_CONFIG_FILE);
 	}
 
-	printf("1 Config file not found: %s\n", config_path);
-
-
 	if(stat(config_path, &fileStat)){
 		print_error("Config file not found: %s\n", config_path);
 		return -1;
@@ -162,10 +160,26 @@ main(int argc, char *argv[])
 		print_debug("Found config file: %s\n", config_path);
 	}
 
-	printf("2 Config file not found: %s\n", config_path);
+	/*Write PID file*/
+	remove("/var/run/mpdd.pid");
+	int pid_fd = open("/var/run/mpdd.pid", O_RDWR | O_CREAT | O_TRUNC, 666);
+	if(!pid_fd){
+		print_error("Could not open pid file.\n");
+		return -1;
+	} else {
+		char pid_buff[128];
+		snprintf(pid_buff, 128, "%ld\n", (long)getpid());
+     	if (write(pid_fd, pid_buff, strlen(pid_buff)) != strlen(pid_buff)){
+			print_error("Could not write to pid file.\n");
+			return -1;
+		}
+		close(pid_fd);
+	}
 
-
-	print_debug("LIBNL: %d.%d.%d\n", LIBNL_VER_MAJ, LIBNL_VER_MIN, LIBNL_VER_MIC);
+	print_debug("LIBNL: %d.%d.%d\n",
+		LIBNL_VER_MAJ,
+		LIBNL_VER_MIN,
+		LIBNL_VER_MIC);
 
 	memset(host_id, 0, 16);
 
@@ -237,8 +251,6 @@ main(int argc, char *argv[])
 		return FAILURE;
 	}
 	print_debug("Loading Config %d\n", minimal_config);
-	printf("Loading config: %s\n", config_path);
-
 	if(minimal_config){
 		config = load_min_config(config_path);
 	} else {
@@ -275,6 +287,7 @@ main(int argc, char *argv[])
 				   (void *)&recv_broadcast, (void *)&squeue);
 
 	while(running) {
+		print_debug("Waiting on barrier\n");
 		sem_wait(&update_barrier);
 		if(!running) break;
 		print_debug("Recieved update\n");
@@ -423,7 +436,7 @@ main(int argc, char *argv[])
 			}
 		}
 LOOP_END:
-			/*
+
 			printf("#######################\n");
 			printf("-----------------------\n");
 			printf("- Physical Interfaces -\n");
@@ -436,7 +449,7 @@ LOOP_END:
 			printf("-----------------------\n");
 			print_interface_list(virt_list);
 			printf("#######################\n");
-			*/
+
 			free(qitem);
 	}
 
