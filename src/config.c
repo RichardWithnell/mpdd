@@ -76,8 +76,6 @@ struct mpd_config * load_min_config(char *path)
     List *ignore = (List*)0;
     List *diss = (List*)0;
 
-    printf("load_min_config\n");
-
     if(!path){
         print_debug("Failed to load config, path is NULL.\n");
         return 0;
@@ -132,7 +130,6 @@ struct mpd_config * load_min_config(char *path)
     /*Read Hostname*/
     memset(line_in, 0, MAX_LINE_SIZE);
     memset(host_id, 0, MAX_HOST_ID_SIZE);
-    printf("Read Line\n");
 
     read = readline(&line_in, (size_t*)&max_size, fp);
     if(!read){
@@ -140,13 +137,10 @@ struct mpd_config * load_min_config(char *path)
         return 0;
     }
 
-    printf("Read Line Done\n");
-
-
     char *strptr = line_in;
     strptr = trimwhitespace(strptr);
     memcpy(host_id, strptr, strlen(strptr));
-    print_log("ID: %s\n", host_id);
+    print_debug("ID: %s\n", host_id);
 
     /*Read Dissemination Interfaces*/
     memset(line_in, 0, MAX_LINE_SIZE);
@@ -179,7 +173,7 @@ struct mpd_config * load_min_config(char *path)
         memset(item->data, 0, strlen(tok)+1);
         strncpy(item->data, tok, strlen(tok));
         list_put(diss, item);
-        print_log("Diss Iff: %s\n", tok);
+        print_debug("Diss Iff: %s\n", tok);
         tok = strtok (NULL, ",");
     }
 
@@ -214,7 +208,7 @@ struct mpd_config * load_min_config(char *path)
         memset(item->data, 0, strlen(tok)+1);
         strncpy(item->data, tok, strlen(tok));
         list_put(ignore, item);
-        print_log("Log Iff: %s\n", tok);
+        print_debug("Log Iff: %s\n", tok);
 
         tok = strtok (NULL, ",");
     }
@@ -223,7 +217,7 @@ struct mpd_config * load_min_config(char *path)
     mpd->host = 1;
     mpd->ignore = ignore;
     mpd->diss = diss;
-    print_log("Config Loaded\n");
+    print_debug("Config Loaded\n");
 
     free(line_in);
     free(host_id);
