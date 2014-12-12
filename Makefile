@@ -13,8 +13,8 @@ ifndef ARCH
 endif
 
 ifeq ($(ARCH),sim)
-    CFLAGS += -fPIC -U_FORTIFY_SOURCE
-    OPTS = -pie
+    CFLAGS += -DDCE_NS3_FIX -fPIC -U_FORTIFY_SOURCE
+    OPTS = -pie -rdynamic
 endif
 
 SRC_PATH=src/
@@ -71,10 +71,10 @@ $(BUILD_PATH)util.o: $(SRC_PATH)util.c $(SRC_PATH)util.h
 	$(CC) $(CFLAGS) -c $(SRC_PATH)util.c -I$(INC_PATH) $(LDFLAGS) $(OPTS) -o $(BUILD_PATH)util.o
 
 $(BUILD_PATH)queue.o: $(SRC_PATH)queue.c $(SRC_PATH)queue.h
-	$(CC) $(CFLAGS) -c $(SRC_PATH)queue.c -o $(BUILD_PATH)queue.o
+	$(CC) $(CFLAGS) -c $(SRC_PATH)queue.c $(OPTS) -o $(BUILD_PATH)queue.o
 
 $(BUILD_PATH)list.o: $(SRC_PATH)list.c $(SRC_PATH)list.h
-	$(CC) $(CFLAGS) -c $(SRC_PATH)list.c -o $(BUILD_PATH)list.o
+	$(CC) $(CFLAGS) -c $(SRC_PATH)list.c $(OPTS) -o $(BUILD_PATH)list.o
 
 clean:
 	@echo "Cleaning..."
