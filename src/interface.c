@@ -487,6 +487,10 @@ add_addr (
         if(prefix){
             p->netmask = ntohl((0xffffffff >> (32 - prefix)) << (32 - prefix));
         }
+        /*Assume broadcast address, if not explicitly set*/
+        if(!p->broadcast){
+          p->broadcast = (p->netmask & p->address) | (~p->netmask);
+        }
         return (struct interface*)p;
     }
 }
@@ -641,6 +645,10 @@ add_route(struct nl_sock *sock,
 
     ifidx = rtnl_route_nh_get_ifindex (nexthop);
     p = (struct physical_interface*)get_interface_by_idx(ifidx, iff_list);
+    if(!p){
+      print_debug("Didn't find physical interface\n");
+      return (struct physical_interface*)0;
+    }
     p->gateway = binary_gw;
 
     /*create virtual interfaces*/
