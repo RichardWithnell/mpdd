@@ -181,6 +181,7 @@ main(int argc, char *argv[])
 		LIBNL_VER_MIN,
 		LIBNL_VER_MIC);
 
+
 	memset(host_id, 0, 16);
 
 	/*Setup libnl socket*/
@@ -601,7 +602,7 @@ handle_gateway_update(
 		print_debug("Virt List: %p\n", virt_list);
 		print_debug("Virt List: %p\n", virt_list->front);
 
-		if(virt_list){
+		if(virt_list) {
 			list_for_each(vitem, virt_list){
 				temp_virt = (struct virtual_interface*)vitem->data;
 				if(temp_virt && temp_virt->address == host_ip){
@@ -612,12 +613,12 @@ handle_gateway_update(
 			}
 		}
 
-		if(exists){
+		if(exists) {
 			return FAILURE;
 		}
 
 		free_table = find_free_routing_table(sock);
-		if(free_table < 0 ){
+		if(free_table < 0 ) {
 			print_debug("No more free routing tables\n");
 			continue;
 		}
@@ -633,7 +634,7 @@ handle_gateway_update(
 
 		print_debug("Added virtual interface %p\n", v);
 
-		if(!v){
+		if(!v) {
 			print_debug("Failed to add virtual interface\n");
 			return FAILURE;
 		}
@@ -653,7 +654,7 @@ handle_gateway_update(
 		print_debug("\tAssigned - %u\n", v->table);
 		create_rule_for_gw(sock, v, v->table);
 		item = (Litem*)malloc(sizeof(Litem));
-		if(!item){
+		if (!item) {
 			errno = ENOMEM;
 			destroy_virt_interface(v);
 			fprintf(stderr, "Failed to malloc a new list item\n");
@@ -663,7 +664,7 @@ handle_gateway_update(
 		print_debug("Add address to the interface\n");
 		print_debug("Virt IP: %s\n", ip_to_str(v->address));
 		print_debug("Physical Virt List: %p\n", phy->virt_list);
-		if(!phy->virt_list){
+		if (!phy->virt_list) {
 			phy->virt_list = malloc(sizeof(List));
 			list_init(phy->virt_list);
 			print_debug("Init Physical Virt List: %p\n", phy->virt_list);
@@ -697,8 +698,7 @@ handle_gateway_update(
 
 		pthread_mutex_lock(&(squeue.iff_list_lock));
 
-		if(add_default_route(sock, entry->address, v->table, phy->super.ifidx))
-		{
+		if(add_default_route(sock, entry->address, v->table, phy->super.ifidx)){
 			pthread_mutex_unlock(&(squeue.iff_list_lock));
 
 			fprintf(stderr, "Failed to add route, for network update\n");

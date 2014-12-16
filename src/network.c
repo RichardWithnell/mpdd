@@ -423,7 +423,7 @@ send_update_broadcast(List *iff_list, int sock)
 			unsigned int len = 0;
 			int gws = 0;
 
-            print_debug("Create Packet for %s\n", iff->super.ifname);
+      print_debug("Create Packet for %s\n", iff->super.ifname);
 
 			if((gws = create_update_packet(iff, &packet)) < 0){
 				print_debug("Create Packet Failed: %d\n", gws);
@@ -432,22 +432,22 @@ send_update_broadcast(List *iff_list, int sock)
 
 			len = serialize_packet(packet, &data);
 
-			#ifdef DEBUG
-            struct mpdpacket *test_packet;
+			//#ifdef DEBUG
+      struct mpdpacket *test_packet;
 			deserialize_packet(data, &test_packet);
 			print_packet(test_packet);
-            free(test_packet);
-            #endif
+      free(test_packet);
+      //#endif
 
-            free(packet);
+      free(packet);
 
-            memset(&(iff->saddr), '0', sizeof(struct sockaddr_in));
-            iff->saddr.sin_family = AF_INET;
-            iff->saddr.sin_port = (in_port_t)htons(MPD_BROADCAST_PORT);
-            iff->saddr.sin_addr.s_addr = iff->broadcast;
+      memset(&(iff->saddr), '0', sizeof(struct sockaddr_in));
+      iff->saddr.sin_family = AF_INET;
+      iff->saddr.sin_port = (in_port_t)htons(MPD_BROADCAST_PORT);
+      iff->saddr.sin_addr.s_addr = iff->broadcast;
 
 			do_broadcast(iff, sock, data, len);
-            free(data);
+      free(data);
 		}
 	}
 
