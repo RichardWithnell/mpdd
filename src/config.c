@@ -208,7 +208,7 @@ struct mpd_config * load_min_config(char *path)
         memset(item->data, 0, strlen(tok)+1);
         strncpy(item->data, tok, strlen(tok));
         list_put(ignore, item);
-        print_debug("Log Iff: %s\n", tok);
+        print_debug("Ignore Iff: %s\n", tok);
 
         tok = strtok (NULL, ",");
     }
