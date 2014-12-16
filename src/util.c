@@ -88,6 +88,15 @@ uint32_t NumberOfSetBits(uint32_t i)
     return (uint32_t)((((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24);
 }
 
+#ifdef DCE_NS3_FIX
+uint32_t get_ext_ip(uint32_t ip)
+{
+    print_debug("Get external ip - DCE_NS3_FIX\n");
+    return ip;
+}
+
+#else
+
 /********
 *
 * TODO this blocks the thread if there is no IP address... probably the same
@@ -124,7 +133,7 @@ uint32_t get_ext_ip(uint32_t ip)
         return (uint32_t)0;
     }
 }
-
+#endif
 
 /**
 *
