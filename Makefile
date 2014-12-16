@@ -40,7 +40,7 @@ run_tests: $(TESTS)
 	@echo "Test Link Monitor Passed"
 
 test/simple_link_monitor: $(TEST_PATH)simple_link_monitor.c $(OBJS)
-	$(CC) $(CFLAGS) -D DEBUG_HIGH -o $(TEST_BIN)simple_link_monitor $(TEST_PATH)simple_link_monitor.c $(OBJS) -I$(INC_PATH) $(LDFLAGS) -lpthread
+	$(CC) $(CFLAGS) -D DEBUG_HIGH -o $(TEST_BIN)simple_link_monitor $(TEST_PATH)simple_link_monitor.c $(OPTS) $(OBJS) -I$(INC_PATH) $(LDFLAGS) -lpthread
 
 
 test/test_link_monitor: $(TEST_PATH)test_link_monitor.c $(OBJS)
