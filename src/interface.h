@@ -65,12 +65,12 @@ struct physical_interface {
 	uint8_t diss;
 	uint8_t request;
 	uint8_t metric;
-    uint8_t depth;
-    uint8_t flags;
-    uint8_t table;
+  uint8_t depth;
+  uint8_t flags;
+  uint8_t table;
 	uint8_t request_received;
-    int socket;
-    struct sockaddr_in saddr;
+  int socket;
+  struct sockaddr_in saddr;
 	List *virt_list;
 };
 
