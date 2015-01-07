@@ -19,30 +19,43 @@
 #ifndef MPD_LINK_MONITOR
 #define MPD_LINK_MONITOR
 
-#include <netlink/route/link.h>
-#include <netlink/route/route.h>
-#include <netlink/route/rtnl.h>
-#include <netlink/route/addr.h>
-#include <netlink/route/nexthop.h>
-#include <netlink/route/rule.h>
-#include <netlink/netlink.h>
-#include <netlink/utils.h>
-#include <netlink/data.h>
-#include <netlink/netlink.h>
-#include <netlink/cache.h>
-#include <netlink/addr.h>
-#include <netlink/object.h>
 #include <semaphore.h>
 #include <pthread.h>
+#include <stdint.h>
 
 #include "queue.h"
+
+struct mnl_addr {
+  uint32_t address;
+  uint32_t local;
+  uint32_t broadcast;
+  uint32_t prefix;
+  uint32_t prefixlen;
+  int idx;
+  uint32_t flags;
+  char label[16];
+  int family;
+};
+
+struct mnl_link {
+  int idx;
+  unsigned int flags;
+  uint8_t type;
+  uint32_t family;
+  char name[16];
+};
+
+struct mnl_route {
+  uint8_t table;
+  int idx;
+  uint32_t gateway;
+  uint32_t prio;
+};
+
 struct cache_monitor {
     Queue *queue;
     pthread_mutex_t *lock;
     sem_t *barrier;
-    struct nl_cache *addr_cache;
-    struct nl_cache *link_cache;
-    struct nl_cache *route_cache;
 };
 
 struct update_obj {

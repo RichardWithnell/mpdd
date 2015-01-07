@@ -23,13 +23,13 @@
 
 #define DEBUG_VERB 0
 
-void cache_update(struct nl_cache *cache, struct nl_object *obj, int action, void *arg);
+static void cache_update(struct nl_cache *cache, struct nl_object *obj, int action, void *arg);
 
 
 /*
 *
 */
-void change_route_cb(void *arg, struct nl_object *obj, int action)
+static void change_route_cb(void *arg, struct nl_object *obj, int action)
 {
     struct update_obj *update;
     Qitem *item;
@@ -116,7 +116,7 @@ void change_route_cb(void *arg, struct nl_object *obj, int action)
 /*
 *
 */
-void change_addr_cb(void *arg, struct nl_object *obj, int action)
+static void change_addr_cb(void *arg, struct nl_object *obj, int action)
 {
     struct update_obj *update;
     Qitem *item;
@@ -175,7 +175,7 @@ void change_addr_cb(void *arg, struct nl_object *obj, int action)
 /*
 *
 */
-void change_link_cb(void *arg, struct nl_object *obj, int action)
+static void change_link_cb(void *arg, struct nl_object *obj, int action)
 {
     struct update_obj *update;
     Qitem *item;
@@ -226,7 +226,7 @@ void change_link_cb(void *arg, struct nl_object *obj, int action)
 /*
 *
 */
-void cache_update(struct nl_cache *cache, struct nl_object *obj, int action, void *arg)
+static void cache_update(struct nl_cache *cache, struct nl_object *obj, int action, void *arg)
 {
   struct cache_monitor *mon = (struct cache_monitor*) arg;
 	print_debug("\n");
@@ -275,66 +275,75 @@ static void boot_route_cache(struct nl_object *obj, void *arg)
 	change_route_cb(pl, obj, NL_ACT_NEW);
 }
 
+static int start_monitor(struct cache_monitor *mon)
+{
+  fd_set fds;
+  int link_running = 1;
+  int sk = 0;
+  struct nl_sock *sock = nl_socket_alloc();
+  int ret = 0;
+  struct nl_cache_mngr *mngr = 0;
+
+
+  if((ret = nl_cache_mngr_alloc (sock, NETLINK_ROUTE, NL_AUTO_PROVIDE, &mngr))){
+    nl_perror(ret, 0);
+    pthread_exit(&ret);
+  }
+
+  print_debug("add addr\n");
+  if((ret = nl_cache_mngr_add(mngr, "route/addr", (change_func_t)&cache_update, mon, &(mon->addr_cache)))){
+    nl_perror(ret, 0);
+    pthread_exit(&ret);
+  }
+
+  print_debug("add link\n");
+  if((ret = nl_cache_mngr_add(mngr, "route/link", (change_func_t)&cache_update, mon, &(mon->link_cache)))){
+    nl_perror(ret, 0);
+    pthread_exit(&ret);
+  }
+
+  print_debug("add route\n");
+  if((ret = nl_cache_mngr_add(mngr, "route/route", (change_func_t)&cache_update, mon, &(mon->route_cache)))){
+    nl_perror(ret, 0);
+    pthread_exit(&ret);
+  }
+
+  print_debug("Boot cache\n");
+
+  nl_cache_foreach(mon->link_cache, boot_link_cache, mon);
+  nl_cache_foreach(mon->addr_cache, boot_addr_cache, mon);
+  nl_cache_foreach(mon->route_cache, boot_route_cache, mon);
+  print_debug("Setup FDS\n");
+
+  sk = nl_socket_get_fd(sock);
+  print_debug("Socket: %d\n", sk);
+  while(link_running) {
+    FD_ZERO(&fds);
+    FD_SET(sk, &fds);
+    ret = select(sk+1, &fds, NULL, NULL, NULL);
+    if( ret < 0 ) {
+      ret = -1;
+      perror("select");
+      break;
+    } else if (ret > 0){
+      ret = nl_cache_mngr_data_ready(mngr);
+    }
+  }
+  return ret;
+}
 
 /*
 *
 */
 void init_monitor(void *data)
 {
-    fd_set fds;
-    int link_running = 1;
-    int sk = 0;
-    struct nl_sock *sock = nl_socket_alloc();
-    int ret = 0;
-    struct nl_cache_mngr *mngr = 0;
+    int ret;
     struct cache_monitor *mon = (struct cache_monitor*)data;
 
+    ret = 0;
+
+    ret = start_monitor(mon);
     print_debug("\n");
-
-    if((ret = nl_cache_mngr_alloc (sock, NETLINK_ROUTE, NL_AUTO_PROVIDE, &mngr))){
-        nl_perror(ret, 0);
-        pthread_exit(&ret);
-    }
-
-    print_debug("add addr\n");
-    if((ret = nl_cache_mngr_add(mngr, "route/addr", (change_func_t)&cache_update, mon, &(mon->addr_cache)))){
-        nl_perror(ret, 0);
-        pthread_exit(&ret);
-    }
-
-    print_debug("add link\n");
-    if((ret = nl_cache_mngr_add(mngr, "route/link", (change_func_t)&cache_update, mon, &(mon->link_cache)))){
-        nl_perror(ret, 0);
-        pthread_exit(&ret);
-    }
-
-    print_debug("add route\n");
-    if((ret = nl_cache_mngr_add(mngr, "route/route", (change_func_t)&cache_update, mon, &(mon->route_cache)))){
-        nl_perror(ret, 0);
-        pthread_exit(&ret);
-    }
-
-    print_debug("Boot cache\n");
-
-    nl_cache_foreach(mon->link_cache, boot_link_cache, mon);
-    nl_cache_foreach(mon->addr_cache, boot_addr_cache, mon);
-    nl_cache_foreach(mon->route_cache, boot_route_cache, mon);
-    print_debug("Setup FDS\n");
-
-    sk = nl_socket_get_fd(sock);
-    print_debug("Socket: %d\n", sk);
-    while(link_running) {
-      FD_ZERO(&fds);
-      FD_SET(sk, &fds);
-      ret = select(sk+1, &fds, NULL, NULL, NULL);
-      if( ret < 0 ) {
-        ret = -1;
-        perror("select");
-        break;
-      } else if (ret > 0){
-        ret = nl_cache_mngr_data_ready(mngr);
-      }
-    }
     pthread_exit(&ret);
 }
 
