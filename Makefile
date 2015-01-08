@@ -4,7 +4,7 @@
 
 LIB_PATH = /usr/lib/
 INC_PATH = /usr/include/libnl3
-LDFLAGS = -lnl-3 -lnl-route-3 -lrt
+LDFLAGS = -lnl-3 -lnl-route-3 -lrt -lmnl
 CC=gcc
 CFLAGS= -g -Wall
 
@@ -13,7 +13,7 @@ ifndef ARCH
 endif
 
 ifeq ($(ARCH),sim)
-    CFLAGS += -DDCE_NS3_FIX -fPIC -U_FORTIFY_SOURCE
+    CFLAGS += -DDCE_NS3_FIX -fPIC -U_FORTIFY_SOURCE -fstack-protector-all -Wstack-protector -fno-omit-frame-pointer
     OPTS = -pie -rdynamic
 endif
 
@@ -29,6 +29,7 @@ OBJS = $(BUILD_PATH)network.o \
        $(BUILD_PATH)util.o \
        $(BUILD_PATH)config.o \
        $(BUILD_PATH)queue.o \
+			 $(BUILD_PATH)lmnl_interface.o \
        $(BUILD_PATH)list.o
 
 TESTS = $(TEST_PATH)test_link_monitor
@@ -58,8 +59,14 @@ mpdd: build_arch_dir bin_arch_dir $(SRC_PATH)mpdd.c $(OBJS)
 $(BUILD_PATH)network.o: $(SRC_PATH)network.c $(SRC_PATH)network.h
 	$(CC) $(CFLAGS) -c $(SRC_PATH)network.c -I$(INC_PATH) $(LDFLAGS) $(OPTS) -o $(BUILD_PATH)network.o
 
-$(BUILD_PATH)link_monitor.o: $(SRC_PATH)link_monitor.c $(SRC_PATH)link_monitor.h
-	$(CC) $(CFLAGS) -c $(SRC_PATH)link_monitor.c -I$(INC_PATH) $(LDFLAGS) $(OPTS) -o $(BUILD_PATH)link_monitor.o
+$(BUILD_PATH)link_monitor.o: $(SRC_PATH)link_monitor_lmnl.c $(SRC_PATH)link_monitor.h
+	$(CC) $(CFLAGS) -c $(SRC_PATH)link_monitor_lmnl.c  -I$(INC_PATH) $(OPTS) $(LDFLAGS) -lmnl -o $(BUILD_PATH)link_monitor.o
+
+$(BUILD_PATH)lmnl_interface.o: $(SRC_PATH)lmnl_interface.c $(SRC_PATH)lmnl_interface.h
+	$(CC) $(CFLAGS) -c $(SRC_PATH)lmnl_interface.c -I$(INC_PATH) $(LDFLAGS) $(OPTS) -o $(BUILD_PATH)lmnl_interface.o
+
+#$(BUILD_PATH)link_monitor.o: $(SRC_PATH)link_monitor.c $(SRC_PATH)link_monitor.h
+#	$(CC) $(CFLAGS) -c $(SRC_PATH)link_monitor.c -I$(INC_PATH) $(LDFLAGS) $(OPTS) -o $(BUILD_PATH)link_monitor.o
 
 $(BUILD_PATH)interface.o: $(SRC_PATH)interface.c $(SRC_PATH)interface.h
 	$(CC) $(CFLAGS) -c $(SRC_PATH)interface.c -I$(INC_PATH) $(LDFLAGS) $(OPTS) -o $(BUILD_PATH)interface.o

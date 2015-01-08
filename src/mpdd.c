@@ -268,8 +268,10 @@ main(int argc, char *argv[])
 	mon_data.queue = &update_queue;
 	mon_data.lock = &update_lock;
 	mon_data.barrier = &update_barrier;
-	mon_data.addr_cache = 0;
-	mon_data.link_cache = 0;
+	//mon_data.addr_cache = 0;
+	//mon_data.link_cache = 0;
+	//mon_data.route_cache = 0;
+
 
 	pthread_create(&monitor_thread, NULL,
 				   (void *)&init_monitor, (void *)&mon_data);

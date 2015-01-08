@@ -1,7 +1,25 @@
+/*
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+Author: Richard Withnell
+github.com/richardwithnell
+*/
+
 #include "lmnl_interface.h"
 #include "debug.h"
 
-static int validate_link_attr_cb(const struct nlattr *attr, void *data)
+int validate_link_attr_cb(const struct nlattr *attr, void *data)
 {
   const struct nlattr **tb = data;
   int type = mnl_attr_get_type(attr);
@@ -22,7 +40,7 @@ static int validate_link_attr_cb(const struct nlattr *attr, void *data)
   return MNL_CB_OK;
 }
 
-static int validate_addr_attr_cb(const struct nlattr *attr, void *data)
+int validate_addr_attr_cb(const struct nlattr *attr, void *data)
 {
   const struct nlattr **tb = data;
   int type = mnl_attr_get_type(attr);
@@ -51,7 +69,7 @@ static int validate_addr_attr_cb(const struct nlattr *attr, void *data)
   return MNL_CB_OK;
 }
 
-static int validate_rt_attr_cb(const struct nlattr *attr, void *data)
+int validate_rt_attr_cb(const struct nlattr *attr, void *data)
 {
   const struct nlattr **tb = data;
   int type = mnl_attr_get_type(attr);
@@ -76,14 +94,15 @@ static int validate_rt_attr_cb(const struct nlattr *attr, void *data)
   return MNL_CB_OK;
 }
 
-struct mnl_link mnl_link_from_msg(struct ifinfomsg *ifm, const struct nlmsghdr *nlh)
+struct mnl_link * mnl_link_from_msg(struct ifinfomsg *ifm, const struct nlmsghdr *nlh)
 {
   struct mnl_link *link = (struct mnl_link*)0;
   struct nlattr *tb[RTA_MAX+1] = {};
 
   link = malloc(sizeof(struct mnl_link));
+  //mnl_attr_parse(nlh, sizeof(*ifm), validate_link_attr_cb, tb);
 
-  mnl_attr_parse(nlh, sizeof(*ifm), validate_link_attr_cb, tb);
+
 
   link->idx = ifm->ifi_index;
   link->type = ifm->ifi_type;
@@ -98,9 +117,9 @@ struct mnl_link mnl_link_from_msg(struct ifinfomsg *ifm, const struct nlmsghdr *
   return link;
 }
 
-struct mnl_addr mnl_addr_from_msg(struct ifaddrmsg *ifa, const struct nlmsghdr *nlh)
+struct mnl_addr * mnl_addr_from_msg(struct ifaddrmsg *ifa, const struct nlmsghdr *nlh)
 {
-  struct mnl_route *addr = (struct mnl_addr*)0;
+  struct mnl_addr *addr = (struct mnl_addr*)0;
   struct nlattr *tb[RTA_MAX+1] = {};
 
   addr = malloc(sizeof(struct mnl_addr));
@@ -117,17 +136,17 @@ struct mnl_addr mnl_addr_from_msg(struct ifaddrmsg *ifa, const struct nlmsghdr *
 
   if (tb[IFA_ADDRESS]) {
     void *a = mnl_attr_get_payload(tb[IFA_ADDRESS]);
-    addr->address = *a;
+    addr->address = *(uint32_t*)a;
   }
 
   if (tb[IFA_LOCAL]){
     void *local = mnl_attr_get_payload(tb[IFA_LOCAL]);
-    addr->local = *local;
+    addr->local = *(uint32_t*)local;
   }
 
   if (tb[IFA_BROADCAST]){
     void *bc = mnl_attr_get_payload(tb[IFA_BROADCAST]);
-    addr->broadcast = *bc;
+    addr->broadcast = *(uint32_t*)bc;
   }
 
   if (tb[IFA_LABEL]){
@@ -138,7 +157,7 @@ struct mnl_addr mnl_addr_from_msg(struct ifaddrmsg *ifa, const struct nlmsghdr *
   return addr;
 }
 
-struct mnl_route mnl_route_from_msg(struct rtmsg *rm, const struct nlmsghdr *nlh)
+struct mnl_route * mnl_route_from_msg(struct rtmsg *rm, const struct nlmsghdr *nlh)
 {
   struct mnl_route *rt = (struct mnl_route*)0;
   struct nlattr *tb[RTA_MAX+1] = {};
@@ -146,6 +165,8 @@ struct mnl_route mnl_route_from_msg(struct rtmsg *rm, const struct nlmsghdr *nlh
   rt = malloc(sizeof(struct mnl_route));
 
   mnl_attr_parse(nlh, sizeof(*rm), validate_rt_attr_cb, tb);
+
+  rt->family = rm->rtm_family;
 
   switch(rm->rtm_family) {
     case AF_INET:
@@ -159,15 +180,16 @@ struct mnl_route mnl_route_from_msg(struct rtmsg *rm, const struct nlmsghdr *nlh
 
       if (tb[RTA_GATEWAY]) {
         struct in_addr *addr = mnl_attr_get_payload(tb[RTA_GATEWAY]);
-        rt->gateway = *addr;
+        rt->gateway = *(uint32_t*)addr;
       }
 
       if (tb[RTA_PRIORITY]) {
-        rt->prio = tb[RTA_PRIORITY];
+        rt->prio = mnl_attr_get_u32(tb[RTA_PRIORITY]);
       }
 
     break;
   }
+  return rt;
 }
 
 struct rtnl_addr * mnl_to_rtnl_addr(struct mnl_addr *a)
@@ -177,12 +199,13 @@ struct rtnl_addr * mnl_to_rtnl_addr(struct mnl_addr *a)
   addr = rtnl_addr_alloc();
   rtnl_addr_set_ifindex(addr, a->idx);
   rtnl_addr_set_prefixlen(addr, a->prefixlen);
+  print_debug("PrefixLength: %d\n", a->prefixlen);
   rtnl_addr_set_flags(addr, a->flags);
   rtnl_addr_set_label(addr, a->label);
-  rtnl_addr_set_family(addr, a->family)
+  rtnl_addr_set_family(addr, a->family);
 
   struct nl_addr *mb = nl_addr_build(a->family, (void *)&(a->broadcast), sizeof(a->broadcast));
-  struct nl_addr *ml = nl_addr_build(a->family, (void *)&(a->prefix), sizeof(a->local));
+  struct nl_addr *ml = nl_addr_build(a->family, (void *)&(a->local), sizeof(a->local));
 
   rtnl_addr_set_local(addr, ml);
   rtnl_addr_set_broadcast(addr, mb);
@@ -196,8 +219,8 @@ struct rtnl_link * mnl_to_rtnl_link(struct mnl_link *l)
 
   link = rtnl_link_alloc();
   rtnl_link_set_name(link, l->name);
-  rtnl_link_set_ifidx(link, l->idx);
-  rtnl_link_set_type(link, l->type);
+  rtnl_link_set_ifindex(link, l->idx);
+//  rtnl_link_set_type(link, l->type);
   rtnl_link_set_flags(link, l->flags);
 
   return link;
@@ -212,7 +235,7 @@ struct rtnl_route * mnl_to_rtnl_route(struct mnl_route *r)
   route = rtnl_route_alloc();
   route_nh = 	rtnl_route_nh_alloc();
 
-  gw = nl_addr_build(a->family, (void *)&(r->gateway), sizeof(a->gateway));
+  gw = nl_addr_build(r->family, (void *)&(r->gateway), sizeof(r->gateway));
   rtnl_route_nh_set_gateway(route_nh, gw);
   rtnl_route_nh_set_ifindex(route_nh, r->idx);
 
@@ -226,15 +249,15 @@ struct rtnl_route * mnl_to_rtnl_route(struct mnl_route *r)
 
 struct mnl_addr * rtnl_to_mnl_addr(struct rtnl_addr *addr)
 {
-
+  return (struct mnl_addr*)0;
 }
 
 struct mnl_link * rtnl_to_mnl_link(struct rtnl_link *link)
 {
-
+  return (struct mnl_link*)0;
 }
 
 struct mnl_route * rtnl_to_mnl_route(struct rtnl_route *route)
 {
-
+  return (struct mnl_route*)0;
 }

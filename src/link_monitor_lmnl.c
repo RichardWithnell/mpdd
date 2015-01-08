@@ -1,7 +1,22 @@
-/* This example is placed in the public domain. */
+/*
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+Author: Richard Withnell
+github.com/richardwithnell
+*/
+
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,100 +29,152 @@
 #include <linux/if_link.h>
 #include <linux/rtnetlink.h>
 
-#include "link_monitor_lmnl.h"
+#include "debug.h"
+#include "link_monitor.h"
 #include "lmnl_interface.h"
 
-static int data_cb(const struct nlmsghdr *nlh, void *data)
+int route_cb(const struct nlmsghdr *nlh, struct update_obj **update)
 {
-  struct update_obj *update;
-  Qitem *item;
-  struct cache_monitor *mon = (struct cache_monitor*) data;
+  struct update_obj *u;
+  struct rtmsg *rm = mnl_nlmsg_get_payload(nlh);
+  struct mnl_route *route = 0;
 
+  route = mnl_route_from_msg(rm, nlh);
+  if(!route){
+    print_error("Failed to parse route\ns");
+    return -1;
+  }
+
+  if(!route->gateway || route->table != RT_TABLE_MAIN){
+    print_debug("Non matching route\n");
+    free(route);
+    return 0;
+  } else {
+    print_debug("Found valid route\n");
+  }
+
+  if(!(u = malloc(sizeof(struct update_obj)))){
+    print_debug("ENOMOM\n");
+    errno = ENOMEM;
+    return errno;
+  }
+
+  switch(nlh->nlmsg_type) {
+    case RTM_NEWROUTE:
+      print_debug("New Route\n");
+      u->action = ADD_RT;
+      break;
+    case RTM_DELROUTE:
+      print_debug("Delete route\n");
+      u->action = DEL_RT;
+      break;
+  }
+
+  u->update = mnl_to_rtnl_route(route);
+  u->type = UPDATE_ROUTE;
+  *update = u;
+
+  return 0;
+
+}
+
+int address_cb(const struct nlmsghdr *nlh, struct update_obj **update)
+{
+  struct update_obj *u;
+  struct ifaddrmsg *ifa = mnl_nlmsg_get_payload(nlh);
+  struct mnl_addr *addr = mnl_addr_from_msg(ifa, nlh);
+
+  if(!(u = malloc(sizeof(struct update_obj)))){
+    print_debug("ENOMOM\n");
+    errno = ENOMEM;
+    return errno;
+  }
+
+  switch(nlh->nlmsg_type) {
+    case RTM_NEWADDR:
+      print_debug("Add IP\n");
+      u->action = ADD_IP;
+      break;
+    case RTM_DELADDR:
+      print_debug("Delete IP\n");
+      u->action = DEL_IP;
+      break;
+  }
+
+  u->update = mnl_to_rtnl_addr(addr);
+  u->type = UPDATE_ADDR;
+  *update = u;
+
+  return 0;
+
+}
+
+int link_cb(const struct nlmsghdr *nlh, struct update_obj **update)
+{
+  struct update_obj *u;
+  struct ifinfomsg *ifm = mnl_nlmsg_get_payload(nlh);
+  struct mnl_link *link = mnl_link_from_msg(ifm, nlh);
+
+  if(!(u = malloc(sizeof(struct update_obj)))){
+    print_debug("ENOMOM\n");
+    errno = ENOMEM;
+    return errno;
+  }
+  print_debug("Link Update\n");
+  if (ifm->ifi_flags & IFF_UP){
+    u->action = ADD_IFF;
+  } else {
+    u->action = DEL_IFF;
+  }
+
+  u->update = mnl_to_rtnl_link(link);
+  u->type = UPDATE_LINK;
+  *update = u;
+
+  return 0;
+}
+
+int data_cb(const struct nlmsghdr *nlh, void *data)
+{
+  struct cache_monitor *mon = (struct cache_monitor*) data;
+  Qitem *item;
+  struct update_obj *update = (struct update_obj*)0;
 
   if(nlh->nlmsg_type == RTM_NEWROUTE || nlh->nlmsg_type == RTM_DELROUTE) {
-    struct rtmsg *rm = mnl_nlmsg_get_payload(nlh);
-    struct mnl_route *route = mnl_route_from_msg(rm, nlh);
-
-    if(!route->gateway || route->table != RT_TABLE_MAIN){
-      print_debug("Non matching route");
-      free(route);
-      free(rm);
+    route_cb(nlh, &update);
+    if(!update){
+      print_debug("Failed to create route update\n");
+      return MNL_CB_OK;
     }
-
-
-    if(!(update = malloc(sizeof(struct update_obj)))){
-      print_debug("ENOMOM\n");
-      errno = ENOMEM;
-      return;
-    }
-    update->update = mnl_to_rtnl_route(route);
-    update->type = UPDATE_ROUTE;
-
-    switch(nlh->nlmsg_type) {
-      case RTM_NEWROUTE:
-        print_debug("[NEW RT] ");
-        update->action = ADD_RT;
-        break;
-      case RTM_DELROUTE:
-        print_debug("[DEL RT] ");
-        update->action = DEL_RT;
-        break;
-    }
-
   } else if (nlh->nlmsg_type == RTM_NEWADDR || nlh->nlmsg_type == RTM_DELADDR) {
-    struct ifaddrmsg *ifa = mnl_nlmsg_get_payload(nlh);
-    struct mnl_addr *addr = mnl_route_from_msg(ifa, nlh);
-
-
-
-    if(!(update = malloc(sizeof(struct update_obj)))){
-      print_debug("ENOMOM\n");
-      errno = ENOMEM;
-      return;
+    address_cb(nlh, &update);
+    if(!update){
+      print_debug("Failed to create address update\n");
+      return MNL_CB_OK;
     }
-    update->update = mnl_to_rtnl_addr(addr);
-    update->type = UPDATE_ADDR;
-
-    switch(nlh->nlmsg_type) {
-      case RTM_NEWADDR:
-        print_debug("Add IP\n");
-        update->action = ADD_IP;
-        break;
-      case RTM_DELADDR:
-        print_debug("Delete IP\n");
-        update->action = DEL_IP;
-        break;
-    }
-
   } else if (nlh->nlmsg_type == RTM_NEWLINK || nlh->nlmsg_type == RTM_DELLINK) {
-    struct ifinfomsg *ifm = mnl_nlmsg_get_payload(nlh);
-    struct mnl_link *link = mnl_route_from_msg(ifm, nlh);
-
-
-    if(!(update = malloc(sizeof(struct update_obj)))){
-      print_debug("ENOMOM\n");
-      errno = ENOMEM;
-      return;
+    link_cb(nlh, &update);
+    if(!update){
+      print_debug("Failed to create link update\n");
+      return MNL_CB_OK;
     }
-    update->update = mnl_to_rtnl_link(link);
-    update->type = UPDATE_LINK;
-
-    if (ifm->ifi_flags & IFF_UP){
-      update->action = ADD_IFF;
-    } else {
-      update->action = DEL_IFF;
-    }
+  } else {
+    print_debug("Unknown nlmsg type in callback\n");
+    return MNL_CB_OK;
   }
 
   if(!(item = malloc(sizeof(Qitem)))){
     print_debug("ENOMOM\n");
     errno = ENOMEM;
-    return;
+    return errno;
   }
 
   item->next = 0;
   item->data = update;
 
+  print_debug("UPDATE: %p\n", update);
+
+  mon = (struct cache_monitor*) data;
   print_debug("add to queue\n");
   pthread_mutex_lock(mon->lock);
   queue_put(mon->queue, item);
@@ -115,22 +182,129 @@ static int data_cb(const struct nlmsghdr *nlh, void *data)
   print_debug("sem_post\n");
   sem_post(mon->barrier);
 
-  printf("\n");
   return MNL_CB_OK;
 }
 
-void init_monitor(void *data)
+int boot(struct mnl_socket *nl, struct nlmsghdr *nlh, unsigned int seq, void *data)
 {
   int ret = 0;
-  struct mnl_socket *nl;
+  unsigned int portid = 0;
   char buf[MNL_SOCKET_BUFFER_SIZE];
 
-  struct cache_monitor *mon = (struct cache_monitor*)data;
+  portid = mnl_socket_get_portid(nl);
+
+  if (mnl_socket_sendto(nl, nlh, nlh->nlmsg_len) < 0) {
+    perror("mnl_socket_send");
+    return -1;
+  }
+
+  ret = mnl_socket_recvfrom(nl, buf, sizeof(buf));
+  while (ret > 0) {
+    ret = mnl_cb_run(buf, ret, seq, portid, data_cb, data);
+    if (ret == MNL_CB_STOP){
+      print_debug("MNL_CB_STOP\n");
+      break;
+    } else if(ret < MNL_CB_STOP){
+      print_debug("MNL_CB_ERROR\n");
+      break;
+    }
+    ret = mnl_socket_recvfrom(nl, buf, sizeof(buf));
+  }
+
+  if (ret == -1) {
+    print_debug("");
+    perror("error");
+    return -1;
+  }
+
+  return 0;
+}
+
+int boot_links(struct mnl_socket *nl, void *data)
+{
+  struct nlmsghdr *nlh;
+  char buf[MNL_SOCKET_BUFFER_SIZE];
+  struct rtgenmsg *rtl;
+  unsigned int seq = 0;
+
+  nlh = mnl_nlmsg_put_header(buf);
+  nlh->nlmsg_type	= RTM_GETLINK;
+  nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+  nlh->nlmsg_seq = seq = time(NULL);
+  rtl = mnl_nlmsg_put_extra_header(nlh, sizeof(struct rtgenmsg));
+  rtl->rtgen_family = AF_PACKET;
+
+  return boot(nl, nlh, seq, data);
+}
+
+int boot_addresses(struct mnl_socket *nl, void *data)
+{
+  struct nlmsghdr *nlh;
+  char buf[MNL_SOCKET_BUFFER_SIZE];
+  struct rtgenmsg *rta;
+  int seq = 0;
+
+  nlh = mnl_nlmsg_put_header(buf);
+  nlh->nlmsg_type	= RTM_GETADDR;
+  nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+  nlh->nlmsg_seq = seq = time(NULL);
+  rta = mnl_nlmsg_put_extra_header(nlh, sizeof(struct rtgenmsg));
+  rta->rtgen_family = AF_INET;
+
+  return boot(nl, nlh, seq, data);
+}
+
+int boot_routes(struct mnl_socket *nl, void *data)
+{
+  struct nlmsghdr *nlh;
+  char buf[MNL_SOCKET_BUFFER_SIZE];
+  struct rtmsg *rtm;
+  int seq = 0;
+
+  nlh = mnl_nlmsg_put_header(buf);
+  nlh->nlmsg_type = RTM_GETROUTE;
+  nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+  nlh->nlmsg_seq = seq = time(NULL);
+  rtm = mnl_nlmsg_put_extra_header(nlh, sizeof(struct rtmsg));
+  rtm->rtm_family = AF_INET;
+
+  return boot(nl, nlh, seq, data);
+}
+
+int initalise_nl(void *data)
+{
+  struct mnl_socket *nl;
 
   nl = mnl_socket_open(NETLINK_ROUTE);
   if (nl == NULL) {
     perror("mnl_socket_open");
-    exit(EXIT_FAILURE);
+    return -1;
+  }
+
+  if (mnl_socket_bind(nl, 0 , MNL_SOCKET_AUTOPID) < 0) {
+    perror("mnl_socket_bind");
+    return -1;
+  }
+
+  boot_links(nl, data);
+  boot_addresses(nl, data);
+  boot_routes(nl, data);
+
+  mnl_socket_close(nl);
+
+  return 0;
+}
+
+int update_loop(void *data)
+{
+  struct mnl_socket *nl;
+  int ret = 0;
+  char buf[MNL_SOCKET_BUFFER_SIZE];
+
+  nl = mnl_socket_open(NETLINK_ROUTE);
+  if (nl == NULL) {
+    perror("mnl_socket_open");
+    return -1;
   }
 
   if (mnl_socket_bind(nl, RTMGRP_IPV4_ROUTE | RTMGRP_LINK | RTMGRP_IPV4_IFADDR ,
@@ -141,7 +315,8 @@ void init_monitor(void *data)
 
   ret = mnl_socket_recvfrom(nl, buf, sizeof(buf));
   while (ret > 0) {
-    ret = mnl_cb_run(buf, ret, 0, 0, data_cb, mon);
+
+    ret = mnl_cb_run(buf, ret, 0, 0, data_cb, data);
     if (ret <= MNL_CB_STOP){
       break;
     }
@@ -150,9 +325,33 @@ void init_monitor(void *data)
 
   if (ret == -1) {
     perror("error");
-    pthread_exit(&ret);
+    return -1;
   }
 
   mnl_socket_close(nl);
+
+  return 0;
+}
+
+void init_monitor(void *data)
+{
+  int ret = 0;
+
+  print_debug("Initalise netlink caches\n");
+
+  if((ret = initalise_nl(data))){
+    print_error("Failed to initalise netlink information");
+    pthread_exit(&ret);
+  }
+
+  print_debug("Monitor updates from netlink\n");
+
+  if((update_loop(data))){
+    print_error("Failed while monitoring netlink updates");
+    pthread_exit(&ret);
+  }
+
   pthread_exit(&ret);
 }
+
+/* end file: link_monitor_lmnl.c */
