@@ -44,14 +44,19 @@
 #include "config.h"
 
 #define MAX_DEPTH 255
+#define HEART_BEAT_TIME 10
+#define LINK_CHECK_TIME 2
+#define LINK_TIMEOUT 100
 
 #define DEF_CONFIG_FILE "/etc/mpd/mpdd_simple.conf"
 
 static int running = 1;
 
 sem_t update_barrier;
-
 char host_id [16];
+struct send_queue squeue;
+List *iff_list = 0;
+List *virt_list = 0;
 
 int
 handle_gateway_update(
@@ -63,6 +68,44 @@ handle_gateway_update(
 
 void sig_handler(int signum);
 int cleanup();
+static void flag_heartbeat(int signum);
+static void check_timeout(int signum);
+
+/*
+*
+*/
+static void check_timeout(int signum)
+{
+	pthread_mutex_lock(&(squeue.iff_list_lock));
+	/*Check links*/
+	list_for_each(item, virt_list){
+		struct virtual_interface *virt = (struct virtual_interface *)item->data;
+		if(virt){
+			virt->last_update -= LINK_CHECK_TIME;
+			if(virt->last_update <= 0){
+				/*Delete virtual*/
+				/*Add to event list*/
+
+			}
+		}
+	}
+	pthread_mutex_unlock(&(squeue.iff_list_lock));
+
+	alarm(LINK_CHECK_TIME);
+}
+
+/*
+*
+*/
+static void flag_heartbeat(int signum)
+{
+    /* Take appropriate actions for signal delivery */
+	pthread_mutex_lock(&(squeue.flag_lock));
+	squeue.flag = 1;
+	pthread_mutex_unlock(&(squeue.flag_lock));
+
+	alarm(HEART_BEAT_TIME);
+}
 
 /*
 *
@@ -74,12 +117,18 @@ void sig_handler(int signum){
 	sem_post(&update_barrier);
 }
 
+/*
+*
+*/
 void print_nexthop_cb(struct rtnl_nexthop *nh, void *args){
 	struct timespec monotime;
 	char buff[32];
 	struct nl_addr * gw = rtnl_route_nh_get_gateway(nh);
 	clock_gettime(CLOCK_MONOTONIC, &monotime);
-	print_log("New Route: %s - %lld.%.9ld\n", nl_addr2str(gw, buff, (size_t)32), (long long)monotime.tv_sec, (long)monotime.tv_nsec);
+	print_eval("NR:%s:%lld.%.9ld\n",
+		nl_addr2str(gw, buff, (size_t)32),
+		(long long)monotime.tv_sec,
+		(long)monotime.tv_nsec);
 }
 
 /*
@@ -88,11 +137,12 @@ void print_nexthop_cb(struct rtnl_nexthop *nh, void *args){
 int
 main(int argc, char *argv[])
 {
+	uint32_t timer;
+
 	struct nl_sock *sock = (struct nl_sock*)0;
 	struct mpd_config *config = (struct mpd_config*)0;
 
-	List *iff_list = 0;
-	List *virt_list = 0;
+
 	List *diss_list = 0;
 	List *ignore_list = 0;
 
@@ -102,7 +152,8 @@ main(int argc, char *argv[])
 	pthread_t network_thread;
 	pthread_mutex_t update_lock;
 	Queue update_queue;
-	struct send_queue squeue;
+
+	struct sigaction act;
 
 	/*Define options for command line args*/
 	struct stat fileStat;
@@ -289,6 +340,13 @@ main(int argc, char *argv[])
 	pthread_create(&network_thread, NULL,
 				   (void *)&recv_broadcast, (void *)&squeue);
 
+	act.sa_handler = &flag_heartbeat;
+	act.sa_mask = 0;
+	act.sa_flags = SA_RESTART;  // Restart interrupted system calls
+	sigaction(SIGALRM, &act, NULL);
+
+	alarm(HEART_BEAT_TIME);
+
 	while(running) {
 		print_debug("Waiting on barrier\n");
 		sem_wait(&update_barrier);
@@ -332,6 +390,7 @@ main(int argc, char *argv[])
 					struct interface *iff = 0;
 					print_debug("Update Address - Add IP\n");
 					pthread_mutex_lock(&(squeue.iff_list_lock));
+
 					iff = add_addr(sock, addr, iff_list,
 							virt_list, ignore_list, diss_list);
 					pthread_mutex_unlock(&(squeue.iff_list_lock));
@@ -373,6 +432,10 @@ main(int argc, char *argv[])
 						phys = (struct physical_interface *)iff;
 						qi->data = phys;
 
+						if(phys->diss){
+							add_virt_for_diss(sock, phys, iff_list, virt_list);
+						}
+
 						/*Found a new interface, request MPDD updates*/
 						pthread_mutex_lock(&(squeue.flag_lock));
 						squeue.request_flag = 1;
@@ -382,7 +445,7 @@ main(int argc, char *argv[])
 				} else if(u->action == DEL_IP) {
 					print_debug("Update Address - Del IP\n");
 					pthread_mutex_lock(&(squeue.iff_list_lock));
-					delete_address_rtnl(addr, iff_list, virt_list);
+					delete_address_rtnl(sock, addr, iff_list, virt_list);
 					pthread_mutex_unlock(&(squeue.iff_list_lock));
 				} else {
 					print_debug("Update Address - Unknown\n");
@@ -409,15 +472,10 @@ main(int argc, char *argv[])
 					pthread_mutex_lock(&(squeue.flag_lock));
 					squeue.flag = 1;
 					pthread_mutex_unlock(&(squeue.flag_lock));
-				} else if(u->action == CHANGE_RT){
-					print_debug("Update Route - Change RT %d\n", u->action);
-					pthread_mutex_lock(&(squeue.iff_list_lock));
-					add_route(sock, route, iff_list, virt_list);
-					pthread_mutex_unlock(&(squeue.iff_list_lock));
 				} else {
 					print_debug("Update Route - Unknown %d\n", u->action);
 				}
-				#ifdef LOG
+				#ifdef EVAL
 				rtnl_route_foreach_nexthop (route, print_nexthop_cb, 0);
 				#endif
 			} else if(u->type == UPDATE_GATEWAY){
@@ -588,7 +646,8 @@ handle_gateway_update(
 		list_for_each(pitem, iff_list){
 			temp_phys = (struct physical_interface*)pitem->data;
 			if(temp_phys && temp_phys->address == host_ip){
-				print_debug("Address already exists, skipping\n");
+
+				print_debug("Physical address aldready exists, skipping\n");
 				exists = 1;
 				break;
 			}
@@ -608,7 +667,8 @@ handle_gateway_update(
 			list_for_each(vitem, virt_list){
 				temp_virt = (struct virtual_interface*)vitem->data;
 				if(temp_virt && temp_virt->address == host_ip){
-					print_debug("Address already exists\n");
+					print_debug("Virtual address already exists, resetting timout\n");
+					temp_virt->last_update = LINK_CHECK_TIME;
 					exists = 1;
 					break;
 				}

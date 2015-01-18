@@ -55,6 +55,13 @@ struct interface {
 	char ifname[IFNAMSIZ]; //iff name
 };
 
+struct metrics {
+	uint32_t bandwidth;
+	uint32_t latency;
+	uint32_t loss;
+	uint32_t type;
+}
+
 struct physical_interface {
 	struct interface super;
 	uint32_t address;
@@ -65,12 +72,12 @@ struct physical_interface {
 	uint8_t diss;
 	uint8_t request;
 	uint8_t metric;
-  uint8_t depth;
-  uint8_t flags;
-  uint8_t table;
+	uint8_t depth;
+	uint8_t flags;
+	uint8_t table;
 	uint8_t request_received;
-  int socket;
-  struct sockaddr_in saddr;
+	int socket;
+	struct sockaddr_in saddr;
 	List *virt_list;
 };
 
@@ -87,8 +94,10 @@ struct virtual_interface {
 	uint8_t type_gateway;
 	uint8_t type_subnet;
     char label[IFNAMSIZ];
+	int last_update;
 	struct physical_interface *attach;
 	struct physical_interface *out;
+	struct virtual_interface *linked;
 };
 
 struct physical_interface *
@@ -119,7 +128,7 @@ struct virtual_interface *add_virtual(char* name, uint32_t idx, uint32_t flags, 
 
 int delete_link(struct rtnl_link *link, List *iff, List *virt, List *ignore_list);
 struct interface* add_addr(struct nl_sock *sock, struct rtnl_addr *addr, List *iff, List *virt, List * ignore_list, List * diss_list);
-int delete_address_rtnl(struct rtnl_addr *addr, List *iff, List *virt);
+int delete_address_rtnl(struct nl_sock *sock, struct rtnl_addr *addr, List *iff, List *virt);
 struct physical_interface* add_route(struct nl_sock *sock, struct rtnl_route *route, List *iff, List *virt);
 int delete_route(struct nl_sock *sock, struct rtnl_route *route, List *iff_list, List *virt_list);
 
@@ -154,6 +163,8 @@ void print_interface_list(List *l);
 
 void free_subnet_cb(struct nl_object *cb, void *arg);
 uint32_t find_free_subnet(struct nl_sock *sock);
+
+int add_virt_for_diss(struct nl_sock *sock, struct physical_interface *phy, List *iff_list, List *virt_list);
 
 #endif
 

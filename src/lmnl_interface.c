@@ -23,8 +23,6 @@ int validate_link_attr_cb(const struct nlattr *attr, void *data)
 {
   const struct nlattr **tb = data;
   int type = mnl_attr_get_type(attr);
-
-  /* skip unsupported attribute in user-space */
   if (mnl_attr_type_valid(attr, IFLA_MAX) < 0)
   return MNL_CB_OK;
 
@@ -35,8 +33,13 @@ int validate_link_attr_cb(const struct nlattr *attr, void *data)
         return MNL_CB_ERROR;
       }
       break;
+    default:
+      break;
   }
+
   tb[type] = attr;
+
+
   return MNL_CB_OK;
 }
 
@@ -82,11 +85,12 @@ int validate_rt_attr_cb(const struct nlattr *attr, void *data)
     case RTA_TABLE:
     case RTA_OIF:
     case RTA_GATEWAY:
+    case RTA_DST:
     case RTA_PRIORITY:
-    if (mnl_attr_validate(attr, MNL_TYPE_U32) < 0) {
-      perror("mnl_attr_validate");
-      return MNL_CB_ERROR;
-    }
+        if (mnl_attr_validate(attr, MNL_TYPE_U32) < 0) {
+          perror("mnl_attr_validate");
+          return MNL_CB_ERROR;
+        }
     break;
   }
 
@@ -97,11 +101,10 @@ int validate_rt_attr_cb(const struct nlattr *attr, void *data)
 struct mnl_link * mnl_link_from_msg(struct ifinfomsg *ifm, const struct nlmsghdr *nlh)
 {
   struct mnl_link *link = (struct mnl_link*)0;
-  struct nlattr *tb[RTA_MAX+1] = {};
+  struct nlattr *tb[IFLA_MAX+1] = {};
 
   link = malloc(sizeof(struct mnl_link));
-  //mnl_attr_parse(nlh, sizeof(*ifm), validate_link_attr_cb, tb);
-
+  mnl_attr_parse(nlh, sizeof(*ifm), validate_link_attr_cb, tb);
 
 
   link->idx = ifm->ifi_index;
@@ -120,7 +123,7 @@ struct mnl_link * mnl_link_from_msg(struct ifinfomsg *ifm, const struct nlmsghdr
 struct mnl_addr * mnl_addr_from_msg(struct ifaddrmsg *ifa, const struct nlmsghdr *nlh)
 {
   struct mnl_addr *addr = (struct mnl_addr*)0;
-  struct nlattr *tb[RTA_MAX+1] = {};
+  struct nlattr *tb[IFLA_MAX+1] = {};
 
   addr = malloc(sizeof(struct mnl_addr));
 
@@ -164,6 +167,13 @@ struct mnl_route * mnl_route_from_msg(struct rtmsg *rm, const struct nlmsghdr *n
 
   rt = malloc(sizeof(struct mnl_route));
 
+  rt->table = 0;
+  rt->idx = 0;
+  rt->gateway = 0;
+  rt->destination = 0;
+  rt->prio = 0;
+  rt->family = 0;
+
   mnl_attr_parse(nlh, sizeof(*rm), validate_rt_attr_cb, tb);
 
   rt->family = rm->rtm_family;
@@ -181,6 +191,11 @@ struct mnl_route * mnl_route_from_msg(struct rtmsg *rm, const struct nlmsghdr *n
       if (tb[RTA_GATEWAY]) {
         struct in_addr *addr = mnl_attr_get_payload(tb[RTA_GATEWAY]);
         rt->gateway = *(uint32_t*)addr;
+      } 
+
+      if (tb[RTA_DST]) {
+        struct in_addr *addr = mnl_attr_get_payload(tb[RTA_DST]);
+        rt->destination = *(uint32_t*)addr;
       }
 
       if (tb[RTA_PRIORITY]) {
@@ -197,18 +212,19 @@ struct rtnl_addr * mnl_to_rtnl_addr(struct mnl_addr *a)
   struct rtnl_addr *addr;
 
   addr = rtnl_addr_alloc();
-  rtnl_addr_set_ifindex(addr, a->idx);
-  rtnl_addr_set_prefixlen(addr, a->prefixlen);
-  print_debug("PrefixLength: %d\n", a->prefixlen);
-  rtnl_addr_set_flags(addr, a->flags);
-  rtnl_addr_set_label(addr, a->label);
-  rtnl_addr_set_family(addr, a->family);
+
 
   struct nl_addr *mb = nl_addr_build(a->family, (void *)&(a->broadcast), sizeof(a->broadcast));
   struct nl_addr *ml = nl_addr_build(a->family, (void *)&(a->local), sizeof(a->local));
 
   rtnl_addr_set_local(addr, ml);
   rtnl_addr_set_broadcast(addr, mb);
+  /*Prefixlen gets reset after the above set_local, do it below...*/
+  rtnl_addr_set_prefixlen(addr, a->prefixlen);
+  rtnl_addr_set_ifindex(addr, a->idx);
+  rtnl_addr_set_flags(addr, a->flags);
+  rtnl_addr_set_label(addr, a->label);
+  rtnl_addr_set_family(addr, a->family);
 
   return addr;
 }
@@ -233,7 +249,7 @@ struct rtnl_route * mnl_to_rtnl_route(struct mnl_route *r)
   struct nl_addr *gw;
 
   route = rtnl_route_alloc();
-  route_nh = 	rtnl_route_nh_alloc();
+  route_nh = rtnl_route_nh_alloc();
 
   gw = nl_addr_build(r->family, (void *)&(r->gateway), sizeof(r->gateway));
   rtnl_route_nh_set_gateway(route_nh, gw);

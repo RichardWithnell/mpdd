@@ -112,11 +112,10 @@ uint32_t get_ext_ip(uint32_t ip)
     memset(buffer, 0, 128);
 
     sprintf(cmd,
-        "wget http://icanhazip.com --tries=1 \
-             --timeout=5 \
-             --bind-address=%s \
-             -O - -o /dev/null",
+        "wget http://ipv4.icanhazip.com --tries=1 --timeout=5 --bind-address=%s -O - -o /dev/null",
          ip_to_str(ntohl(ip)));
+
+    print_debug("Running: %s\n", cmd);
 
     FILE *f = popen(cmd, "r");
     fscanf(f, "%s", buffer);

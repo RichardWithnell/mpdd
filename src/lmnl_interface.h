@@ -58,6 +58,7 @@ struct mnl_link {
 struct mnl_route {
   uint8_t table;
   int idx;
+  uint32_t destination;
   uint32_t gateway;
   uint32_t prio;
   uint32_t family;
