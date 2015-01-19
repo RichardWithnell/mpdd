@@ -53,48 +53,48 @@
 
 struct mpdentry
 {
-	uint32_t address;
-	uint32_t netmask;
-	uint32_t gateway;
-	uint32_t ext_ip;
-	uint8_t depth;
-	uint8_t type;
+    uint32_t address;
+    uint32_t netmask;
+    uint32_t gateway;
+    uint32_t ext_ip;
+    uint8_t depth;
+    uint8_t type;
 } __attribute__((__packed__));
 
 struct mpdhdr
 {
-	uint8_t type;
-	uint8_t num;
+    uint8_t type;
+    uint8_t num;
 } __attribute__((__packed__));
 
 struct mpdpacket
 {
-	struct mpdhdr* header;
-	struct mpdentry* entry;
+    struct mpdhdr* header;
+    struct mpdentry* entry;
 } __attribute__((__packed__));
 
 struct send_queue
 {
-	struct queue receive_queue;
-	int flag;
-	int request_flag;
-	struct queue request_queue;
-	List* iff_list;
-	List* virt_list;
-	List* old_virt_list;
-	struct cache_monitor* mon_data;
-	pthread_mutex_t flag_lock;
-	pthread_mutex_t request_flag_lock;
-	pthread_mutex_t iff_list_lock;
-	pthread_mutex_t virt_list_lock;
+    struct queue receive_queue;
+    int flag;
+    int request_flag;
+    struct queue request_queue;
+    List* iff_list;
+    List* virt_list;
+    List* old_virt_list;
+    struct cache_monitor* mon_data;
+    pthread_mutex_t flag_lock;
+    pthread_mutex_t request_flag_lock;
+    pthread_mutex_t iff_list_lock;
+    pthread_mutex_t virt_list_lock;
 
-	int running;
+    int running;
 };
 
 struct network_update
 {
-	struct sockaddr_in addr;
-	struct mpdpacket pkt;
+    struct sockaddr_in addr;
+    struct mpdpacket pkt;
 };
 
 void* recv_broadcast(struct send_queue* squeue);

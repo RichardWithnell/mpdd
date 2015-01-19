@@ -23,15 +23,15 @@
 
 typedef struct qitem
 {
-	/* next must always be first; can cast to any struct with this first */
-	struct qitem* next;
-	void* data;
+    /* next must always be first; can cast to any struct with this first */
+    struct qitem* next;
+    void* data;
 } Qitem;
 
 typedef struct queue
 {
-	Qitem* front, * back;
-	int size;
+    Qitem* front, * back;
+    int size;
 } Queue;
 
 int queue_size(Queue* q);

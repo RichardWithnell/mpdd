@@ -66,12 +66,14 @@ static const uint32_t CIDR[33] =
  */
 uint32_t lookup_cidr(uint32_t netmask)
 {
-	int i = 0;
-	for(i = 0; i <= 32; i++)
-		if(CIDR[i] == netmask)
-			break;
+    int i = 0;
+    for(i = 0; i <= 32; i++) {
+        if(CIDR[i] == netmask) {
+            break;
+        }
+    }
 
-	return i;
+    return i;
 }
 
 /*
@@ -79,16 +81,16 @@ uint32_t lookup_cidr(uint32_t netmask)
  */
 uint32_t NumberOfSetBits(uint32_t i)
 {
-	i = i - ((i >> 1) & 0x55555555);
-	i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
-	return (uint32_t)((((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24);
+    i = i - ((i >> 1) & 0x55555555);
+    i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+    return (uint32_t)((((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24);
 }
 
 #ifdef DCE_NS3_FIX
 uint32_t get_ext_ip(uint32_t ip)
 {
-	print_debug("Get external ip - DCE_NS3_FIX\n");
-	return ip;
+    print_debug("Get external ip - DCE_NS3_FIX\n");
+    return ip;
 }
 
 #else
@@ -100,37 +102,34 @@ uint32_t get_ext_ip(uint32_t ip)
  */
 uint32_t get_ext_ip(uint32_t ip)
 {
-	char* cmd = malloc(256);
-	char* buffer = malloc(128);
-	struct in_addr addr;
+    char* cmd = malloc(256);
+    char* buffer = malloc(128);
+    struct in_addr addr;
 
-	memset(cmd, 0, 256);
-	memset(buffer, 0, 128);
+    memset(cmd, 0, 256);
+    memset(buffer, 0, 128);
 
-	sprintf(
-	        cmd,
-	        "wget http://ipv4.icanhazip.com --tries=1 --timeout=5 --bind-address=%s -O - -o /dev/null",
-	        ip_to_str(ntohl(ip)));
+    sprintf(
+        cmd,
+        "wget http://ipv4.icanhazip.com --tries=1 --timeout=5 --bind-address=%s -O - -o /dev/null",
+        ip_to_str(ntohl(ip)));
 
-	print_debug("Running: %s\n", cmd);
+    print_debug("Running: %s\n", cmd);
 
-	FILE* f = popen(cmd, "r");
-	fscanf(f, "%s", buffer);
+    FILE* f = popen(cmd, "r");
+    fscanf(f, "%s", buffer);
 
-	/*Retrieved the external IP succes
-	   sfully*/
-	if(inet_pton(AF_INET, buffer, &addr) == 1)
-	{
-		free(buffer);
-		free(cmd);
-		return (uint32_t)addr.s_addr;
-	}
-	else
-	{
-		free(buffer);
-		free(cmd);
-		return (uint32_t)0;
-	}
+    /*Retrieved the external IP succes
+       sfully*/
+    if(inet_pton(AF_INET, buffer, &addr) == 1) {
+        free(buffer);
+        free(cmd);
+        return (uint32_t)addr.s_addr;
+    } else {
+        free(buffer);
+        free(cmd);
+        return (uint32_t)0;
+    }
 }
 #endif
 
@@ -139,17 +138,18 @@ uint32_t get_ext_ip(uint32_t ip)
  */
 char* trimwhitespace(char* str)
 {
-	char* end;
+    char* end;
 
-	// Trim trailing space
-	end = str + strlen(str) - 1;
-	while(end > str && isspace(*end))
-		end--;
+    // Trim trailing space
+    end = str + strlen(str) - 1;
+    while(end > str && isspace(*end)) {
+        end--;
+    }
 
-	// Write new null terminator
-	*(end + 1) = 0;
+    // Write new null terminator
+    *(end + 1) = 0;
 
-	return str;
+    return str;
 }
 
 /**
@@ -157,16 +157,16 @@ char* trimwhitespace(char* str)
  */
 char* ip_to_str(int ip)
 {
-	static char ipstr[32] = "";
+    static char ipstr[32] = "";
 
-	memset(ipstr, 0, 32);
-	sprintf(ipstr,
-	        "%d.%d.%d.%d",
-	        (ip >> 24) & 0xFF,
-	        (ip >> 16) & 0xFF,
-	        (ip >> 8) & 0xFF,
-	        ip & 0xFF);
-	return ipstr;
+    memset(ipstr, 0, 32);
+    sprintf(ipstr,
+            "%d.%d.%d.%d",
+            (ip >> 24) & 0xFF,
+            (ip >> 16) & 0xFF,
+            (ip >> 8) & 0xFF,
+            ip & 0xFF);
+    return ipstr;
 }
 
 /**
@@ -174,12 +174,12 @@ char* ip_to_str(int ip)
  */
 void print_ip(int ip)
 {
-	unsigned char bytes[4];
-	bytes[0] = ip & 0xFF;
-	bytes[1] = (ip >> 8) & 0xFF;
-	bytes[2] = (ip >> 16) & 0xFF;
-	bytes[3] = (ip >> 24) & 0xFF;
-	printf("\t%d.%d.%d.%d\n", bytes[3], bytes[2], bytes[1], bytes[0]);
+    unsigned char bytes[4];
+    bytes[0] = ip & 0xFF;
+    bytes[1] = (ip >> 8) & 0xFF;
+    bytes[2] = (ip >> 16) & 0xFF;
+    bytes[3] = (ip >> 24) & 0xFF;
+    printf("\t%d.%d.%d.%d\n", bytes[3], bytes[2], bytes[1], bytes[0]);
 }
 
 /**
@@ -187,16 +187,17 @@ void print_ip(int ip)
  */
 int multipath_enabled(void)
 {
-	size_t size = 0;
-	int enabled;
-	char* line, * endptr = 0;
+    size_t size = 0;
+    int enabled;
+    char* line, * endptr = 0;
 
-	FILE* file = fopen("/proc/sys/net/mptcp/mptcp_enabled", "r");
-	while (!feof(file))
-		getline(&line, &size, file);
-	fclose (file);
-	enabled = strtol(line, &endptr, 10);
-	return (endptr != line) ? enabled : 0;
+    FILE* file = fopen("/proc/sys/net/mptcp/mptcp_enabled", "r");
+    while (!feof(file)) {
+        getline(&line, &size, file);
+    }
+    fclose (file);
+    enabled = strtol(line, &endptr, 10);
+    return (endptr != line) ? enabled : 0;
 }
 
 /**
@@ -204,19 +205,20 @@ int multipath_enabled(void)
  */
 uint8_t get_net_mp_const(int flags)
 {
-	uint8_t mode = 0;
-	int mp = flags & IFF_NOMULTIPATH;
-	int bu = flags & IFF_MPBACKUP;
-	int ho = flags & IFF_MPHANDOVER;
-	if(mp)
-		mode = NET_MP_MODE_OFF;
-	else if(bu)
-		mode = NET_MP_MODE_BACKUP;
-	else if(ho)
-		mode = NET_MP_MODE_HANDOVER;
-	else
-		mode = NET_MP_MODE_ON;
-	return mode;
+    uint8_t mode = 0;
+    int mp = flags & IFF_NOMULTIPATH;
+    int bu = flags & IFF_MPBACKUP;
+    int ho = flags & IFF_MPHANDOVER;
+    if(mp) {
+        mode = NET_MP_MODE_OFF;
+    } else if(bu) {
+        mode = NET_MP_MODE_BACKUP;
+    } else if(ho) {
+        mode = NET_MP_MODE_HANDOVER;
+    } else {
+        mode = NET_MP_MODE_ON;
+    }
+    return mode;
 }
 
 /**
@@ -224,19 +226,20 @@ uint8_t get_net_mp_const(int flags)
  */
 char* get_mp_mode(int flags)
 {
-	static char* mode = "";
-	int mp = flags & IFF_NOMULTIPATH;
-	int bu = flags & IFF_MPBACKUP;
-	int ho = flags & IFF_MPHANDOVER;
-	if(mp)
-		mode = "NOMULTIPATH";
-	else if(bu)
-		mode = "MPBACKUP";
-	else if(ho)
-		mode = "MPHANDOVER";
-	else
-		mode = "MULTIPATH";
-	return mode;
+    static char* mode = "";
+    int mp = flags & IFF_NOMULTIPATH;
+    int bu = flags & IFF_MPBACKUP;
+    int ho = flags & IFF_MPHANDOVER;
+    if(mp) {
+        mode = "NOMULTIPATH";
+    } else if(bu) {
+        mode = "MPBACKUP";
+    } else if(ho) {
+        mode = "MPHANDOVER";
+    } else {
+        mode = "MULTIPATH";
+    }
+    return mode;
 }
 
 /* end file: util.c */

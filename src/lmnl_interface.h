@@ -37,34 +37,34 @@
 
 struct mnl_addr
 {
-	uint32_t address;
-	uint32_t local;
-	uint32_t broadcast;
-	uint32_t prefix;
-	uint32_t prefixlen;
-	int idx;
-	uint32_t flags;
-	char label[16];
-	int family;
+    uint32_t address;
+    uint32_t local;
+    uint32_t broadcast;
+    uint32_t prefix;
+    uint32_t prefixlen;
+    int idx;
+    uint32_t flags;
+    char label[16];
+    int family;
 };
 
 struct mnl_link
 {
-	int idx;
-	unsigned int flags;
-	uint8_t type;
-	uint32_t family;
-	char name[16];
+    int idx;
+    unsigned int flags;
+    uint8_t type;
+    uint32_t family;
+    char name[16];
 };
 
 struct mnl_route
 {
-	uint8_t table;
-	int idx;
-	uint32_t destination;
-	uint32_t gateway;
-	uint32_t prio;
-	uint32_t family;
+    uint8_t table;
+    int idx;
+    uint32_t destination;
+    uint32_t gateway;
+    uint32_t prio;
+    uint32_t family;
 };
 
 struct mnl_route* mnl_route_from_msg(struct rtmsg* rm, const struct nlmsghdr* nlh);

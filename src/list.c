@@ -23,9 +23,9 @@
  */
 uint32_t list_init(List* l)
 {
-	l->front = l->back = (Litem*)0;
-	l->size = 0;
-	return 1;
+    l->front = l->back = (Litem*)0;
+    l->size = 0;
+    return 1;
 }
 
 /**
@@ -33,7 +33,7 @@ uint32_t list_init(List* l)
  */
 uint32_t list_empty(List* l)
 {
-	return l->front == (Litem*)0;
+    return l->front == (Litem*)0;
 }
 
 /**
@@ -41,7 +41,7 @@ uint32_t list_empty(List* l)
  */
 uint32_t list_size(List* l)
 {
-	return l->size;
+    return l->size;
 }
 
 /**
@@ -49,39 +49,37 @@ uint32_t list_size(List* l)
  */
 List* list_copy(List* old_list)
 {
-	List* new_list = (List*)0;
-	Litem* li;
+    List* new_list = (List*)0;
+    Litem* li;
 
-	if((new_list = malloc(sizeof(List))))
-		return (List*)0;
+    if((new_list = malloc(sizeof(List)))) {
+        return (List*)0;
+    }
 
-	list_init(new_list);
+    list_init(new_list);
 
-	li = old_list->front;
+    li = old_list->front;
 
-	while(li)
-	{
-		Litem* new_item = (Litem*)0;
+    while(li) {
+        Litem* new_item = (Litem*)0;
 
-		if((new_item = malloc(sizeof(Litem))))
-		{
-			list_destroy(new_list);
-			return (List*)0;
-		}
+        if((new_item = malloc(sizeof(Litem)))) {
+            list_destroy(new_list);
+            return (List*)0;
+        }
 
-		if((new_item->data = malloc(sizeof(li->data))))
-		{
-			list_destroy(new_list);
-			return (List*)0;
-		}
+        if((new_item->data = malloc(sizeof(li->data)))) {
+            list_destroy(new_list);
+            return (List*)0;
+        }
 
-		memcpy(new_item->data, li->data, sizeof(*(li->data)));
+        memcpy(new_item->data, li->data, sizeof(*(li->data)));
 
-		list_put(new_list, new_item);
-		li = li->next;
-	}
+        list_put(new_list, new_item);
+        li = li->next;
+    }
 
-	return new_list;
+    return new_list;
 }
 
 /**
@@ -89,19 +87,19 @@ List* list_copy(List* old_list)
  */
 void list_destroy(List* l)
 {
-	Litem* li = (Litem*)0;
+    Litem* li = (Litem*)0;
 
-	if(!l)
-		return;
+    if(!l) {
+        return;
+    }
 
-	li = l->front;
-	while(li)
-	{
-		Litem* next = li->next;
-		free(li);
-		li = next;
-	}
-	free(l);
+    li = l->front;
+    while(li) {
+        Litem* next = li->next;
+        free(li);
+        li = next;
+    }
+    free(l);
 }
 
 /**
@@ -109,15 +107,17 @@ void list_destroy(List* l)
  */
 void list_put(List* l, Litem* new_item)
 {
-	if(!l || !new_item)
-		return;
-	new_item->next = (Litem*)0;
-	if (list_empty(l))
-		l->front = new_item;
-	else
-		l->back->next = new_item;
-	l->back = new_item;
-	l->size++;
+    if(!l || !new_item) {
+        return;
+    }
+    new_item->next = (Litem*)0;
+    if (list_empty(l)) {
+        l->front = new_item;
+    } else {
+        l->back->next = new_item;
+    }
+    l->back = new_item;
+    l->size++;
 }
 
 /**
@@ -125,38 +125,38 @@ void list_put(List* l, Litem* new_item)
  */
 Litem* list_remove(List* l, uint32_t index)
 {
-	uint32_t i = 0;
-	Litem* curr;
-	Litem* prev;
+    uint32_t i = 0;
+    Litem* curr;
+    Litem* prev;
 
-	if(!l)
-		return (Litem*)0;
+    if(!l) {
+        return (Litem*)0;
+    }
 
-	if(index >= l->size || l->size <= 0)
-		return (Litem*)0;
+    if(index >= l->size || l->size <= 0) {
+        return (Litem*)0;
+    }
 
-	if(index == 0)
-	{
-		curr = l->front;
-		l->front = curr->next;
-	}
-	else
-	{
-		curr = l->front;
-		for(; i < index; i++)
-		{
-			prev = curr;
-			curr = curr->next;
-		}
-		if(curr)
-			prev->next = curr->next;
-	}
+    if(index == 0) {
+        curr = l->front;
+        l->front = curr->next;
+    } else {
+        curr = l->front;
+        for(; i < index; i++) {
+            prev = curr;
+            curr = curr->next;
+        }
+        if(curr) {
+            prev->next = curr->next;
+        }
+    }
 
-	if(index == l->size - 1)
-		l->back = prev;
+    if(index == l->size - 1) {
+        l->back = prev;
+    }
 
-	l->size--;
-	return curr;
+    l->size--;
+    return curr;
 }
 
 /**
@@ -164,21 +164,24 @@ Litem* list_remove(List* l, uint32_t index)
  */
 Litem* list_get(List* l, uint32_t index)
 {
-	uint32_t i = 0;
-	Litem* li;
+    uint32_t i = 0;
+    Litem* li;
 
-	if(!l)
-		return (Litem*)0;
+    if(!l) {
+        return (Litem*)0;
+    }
 
-	if(index > l->size || l->size <= 0)
-		return (Litem*)0;
+    if(index > l->size || l->size <= 0) {
+        return (Litem*)0;
+    }
 
-	li = l->front;
+    li = l->front;
 
-	for(; i < index; i++)
-		li = li->next;
+    for(; i < index; i++) {
+        li = li->next;
+    }
 
-	return (Litem*)li;
+    return (Litem*)li;
 }
 
 /* end file: list.c */

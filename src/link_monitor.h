@@ -38,19 +38,19 @@
 #include "queue.h"
 struct cache_monitor
 {
-	Queue* queue;
-	pthread_mutex_t* lock;
-	sem_t* barrier;
-	struct nl_cache* addr_cache;
-	struct nl_cache* link_cache;
-	struct nl_cache* route_cache;
+    Queue* queue;
+    pthread_mutex_t* lock;
+    sem_t* barrier;
+    struct nl_cache* addr_cache;
+    struct nl_cache* link_cache;
+    struct nl_cache* route_cache;
 };
 
 struct update_obj
 {
-	int action;
-	int type;
-	void* update;
+    int action;
+    int type;
+    void* update;
 };
 
 #define UPDATE_LINK 1

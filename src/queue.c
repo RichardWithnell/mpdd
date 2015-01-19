@@ -24,9 +24,9 @@
 int
 queue_init(Queue* q)
 {
-	q->front = q->back = (Qitem*)0;
-	q->size = 0;
-	return 0;
+    q->front = q->back = (Qitem*)0;
+    q->size = 0;
+    return 0;
 }
 
 /**
@@ -35,7 +35,7 @@ queue_init(Queue* q)
 int
 queue_empty(Queue* q)
 {
-	return q->front == (Qitem*)0;
+    return q->front == (Qitem*)0;
 }
 
 /**
@@ -44,7 +44,7 @@ queue_empty(Queue* q)
 int
 queue_size(Queue* q)
 {
-	return q->size;
+    return q->size;
 }
 
 /**
@@ -53,13 +53,14 @@ queue_size(Queue* q)
 void
 queue_put(Queue* q, Qitem* new_item)
 {
-	new_item->next = (Qitem*)0;
-	if (queue_empty(q))
-		q->front = new_item;
-	else
-		q->back->next = new_item;
-	q->back = new_item;
-	q->size++;
+    new_item->next = (Qitem*)0;
+    if (queue_empty(q)) {
+        q->front = new_item;
+    } else {
+        q->back->next = new_item;
+    }
+    q->back = new_item;
+    q->size++;
 }
 
 /**
@@ -68,17 +69,18 @@ queue_put(Queue* q, Qitem* new_item)
 Qitem*
 queue_get(Queue* q)
 {
-	Qitem* p = q->front;
+    Qitem* p = q->front;
 
-	if (!queue_empty(q))
-	{
-		q->front = q->front->next;
-		if (q->front == (Qitem*)0)
-			q->back = (Qitem*)0;
-	}
-	if(p)
-		q->size--;
-	return p;
+    if (!queue_empty(q)) {
+        q->front = q->front->next;
+        if (q->front == (Qitem*)0) {
+            q->back = (Qitem*)0;
+        }
+    }
+    if(p) {
+        q->size--;
+    }
+    return p;
 }
 
 /* end file: queue.c */

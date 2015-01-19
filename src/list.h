@@ -26,15 +26,15 @@
 
 typedef struct litem
 {
-	struct litem* next;
-	struct litem* prev;
-	void* data;
+    struct litem* next;
+    struct litem* prev;
+    void* data;
 } Litem;
 
 typedef struct list
 {
-	Litem* front, * back;
-	uint32_t size;
+    Litem* front, * back;
+    uint32_t size;
 } List;
 
 uint32_t list_size(List* l);
@@ -46,7 +46,7 @@ Litem* list_remove(List* l, uint32_t index);
 Litem* list_get(List* l, uint32_t index);
 
 #define list_for_each(item, list) \
-        Litem * item; for(item = list->front; item != 0; item = item->next) \
+    Litem * item; for(item = list->front; item != 0; item = item->next) \
 
 
 #endif

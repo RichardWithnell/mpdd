@@ -51,57 +51,57 @@ struct interface;
 
 struct interface
 {
-	int type;
-	uint8_t ifidx;
-	char ifname[IFNAMSIZ];                     //iff name
+    int type;
+    uint8_t ifidx;
+    char ifname[IFNAMSIZ];                 //iff name
 };
 
 struct metrics
 {
-	uint32_t bandwidth;
-	uint16_t latency;
-	uint8_t loss;
-	uint8_t type;
+    uint32_t bandwidth;
+    uint16_t latency;
+    uint8_t loss;
+    uint8_t type;
 };
 
 struct physical_interface
 {
-	struct interface super;
-	uint32_t address;
-	uint32_t netmask;
-	uint32_t gateway;
-	uint32_t broadcast;
-	uint32_t external_ip;
-	uint8_t diss;
-	uint8_t request;
-	uint8_t metric;
-	uint8_t depth;
-	uint8_t flags;
-	uint8_t table;
-	uint8_t request_received;
-	int socket;
-	struct sockaddr_in saddr;
-	List* virt_list;
+    struct interface super;
+    uint32_t address;
+    uint32_t netmask;
+    uint32_t gateway;
+    uint32_t broadcast;
+    uint32_t external_ip;
+    uint8_t diss;
+    uint8_t request;
+    uint8_t metric;
+    uint8_t depth;
+    uint8_t flags;
+    uint8_t table;
+    uint8_t request_received;
+    int socket;
+    struct sockaddr_in saddr;
+    List* virt_list;
 };
 
 struct virtual_interface
 {
-	struct interface super;
-	uint32_t address;
-	uint32_t netmask;
-	uint32_t gateway;
-	uint32_t external_ip;
-	uint8_t metric;
-	uint8_t depth;
-	uint8_t flags;
-	uint8_t table;
-	uint8_t type_gateway;
-	uint8_t type_subnet;
-	char label[IFNAMSIZ];
-	int last_update;
-	struct physical_interface* attach;
-	struct physical_interface* out;
-	struct virtual_interface* linked;
+    struct interface super;
+    uint32_t address;
+    uint32_t netmask;
+    uint32_t gateway;
+    uint32_t external_ip;
+    uint8_t metric;
+    uint8_t depth;
+    uint8_t flags;
+    uint8_t table;
+    uint8_t type_gateway;
+    uint8_t type_subnet;
+    char label[IFNAMSIZ];
+    int last_update;
+    struct physical_interface* attach;
+    struct physical_interface* out;
+    struct virtual_interface* linked;
 };
 
 struct physical_interface*
