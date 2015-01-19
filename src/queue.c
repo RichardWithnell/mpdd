@@ -14,74 +14,71 @@
 
     Author: Richard Withnell
     github.com/richardwithnell
-*/
+ */
 
 #include "queue.h"
 
-
 /**
-*
-*/
+ *
+ */
 int
-queue_init(Queue *q)
+queue_init(Queue* q)
 {
-    q->front = q->back = (Qitem *)0;
-    q->size = 0;
+	q->front = q->back = (Qitem*)0;
+	q->size = 0;
 	return 0;
 }
 
-
 /**
-*
-*/
+ *
+ */
 int
-queue_empty(Queue *q)
+queue_empty(Queue* q)
 {
-    return (q->front == (Qitem *)0);
+	return q->front == (Qitem*)0;
 }
 
-
 /**
-*
-*/
+ *
+ */
 int
-queue_size(Queue *q)
+queue_size(Queue* q)
 {
-    return q->size;
+	return q->size;
 }
 
-
 /**
-*
-*/
+ *
+ */
 void
-queue_put(Queue *q, Qitem *new_item)
+queue_put(Queue* q, Qitem* new_item)
 {
-    new_item->next = (Qitem *)0;
-    if (queue_empty(q)) {
-            q->front = new_item;
-    } else {
-            q->back->next = new_item;
-    }
-    q->back = new_item;
-    q->size++;
+	new_item->next = (Qitem*)0;
+	if (queue_empty(q))
+		q->front = new_item;
+	else
+		q->back->next = new_item;
+	q->back = new_item;
+	q->size++;
 }
 
-
 /**
-*
-*/
-Qitem *
-queue_get(Queue *q)
+ *
+ */
+Qitem*
+queue_get(Queue* q)
 {
-    Qitem *p = q->front;
+	Qitem* p = q->front;
 
-    if (!queue_empty(q)) {
-        q->front = q->front->next;
-        if (q->front == (Qitem *)0) q->back = (Qitem *)0;
-    }
-    if(p) q->size--;
-    return p;
+	if (!queue_empty(q))
+	{
+		q->front = q->front->next;
+		if (q->front == (Qitem*)0)
+			q->back = (Qitem*)0;
+	}
+	if(p)
+		q->size--;
+	return p;
 }
 
 /* end file: queue.c */

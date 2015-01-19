@@ -14,29 +14,31 @@
 
     Author: Richard Withnell
     github.com/richardwithnell
-*/
+ */
 
 /* file: queue.h -- definitions for queue manipulation routines. */
 
 #ifndef MPD_QUEUE_DEFINED
 #define MPD_QUEUE_DEFINED
 
-typedef struct qitem {
-    /* next must always be first; can cast to any struct with this first */
-    struct qitem *next;
-    void *data;
+typedef struct qitem
+{
+	/* next must always be first; can cast to any struct with this first */
+	struct qitem* next;
+	void* data;
 } Qitem;
 
-typedef struct queue {
-    Qitem *front, *back;
-    int size;
+typedef struct queue
+{
+	Qitem* front, * back;
+	int size;
 } Queue;
 
-int queue_size(Queue *q);
-int queue_init(Queue *q);
-int queue_empty(Queue *q);
-void queue_put(Queue *q, Qitem *new_item);
-Qitem *queue_get(Queue *q);
+int queue_size(Queue* q);
+int queue_init(Queue* q);
+int queue_empty(Queue* q);
+void queue_put(Queue* q, Qitem* new_item);
+Qitem* queue_get(Queue* q);
 
 #endif
 

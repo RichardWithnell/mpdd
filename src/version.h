@@ -14,7 +14,7 @@
 
     Author: Richard Withnell
     github.com/richardwithnell
-*/
+ */
 
 /*
  * version.h	Versioning Information
@@ -28,22 +28,22 @@
 #define MPDD_STRING "mpdd 0.1.0"
 #define MPDD_VERSION "0.1.0"
 
-#define MPDD_VER_MAJ		0
-#define MPDD_VER_MIN		1
-#define MPDD_VER_MIC		0
-#define MPDD_VER(maj,min)	((maj) << 8 | (min))
-#define MPDD_VER_NUM		MPDD_VER(MPDD_VER_MAJ, MPDD_VER_MIN)
+#define MPDD_VER_MAJ        0
+#define MPDD_VER_MIN        1
+#define MPDD_VER_MIC        0
+#define MPDD_VER(maj,min)   ((maj) << 8 | (min))
+#define MPDD_VER_NUM        MPDD_VER(MPDD_VER_MAJ, MPDD_VER_MIN)
 
-#define MPDD_CURRENT		1
-#define MPDD_REVISION		0
-#define MPDD_AGE		0
+#define MPDD_CURRENT        1
+#define MPDD_REVISION       0
+#define MPDD_AGE        0
 
 /* Run-time version information */
 
-extern const int        mpdd_ver_num;
-extern const int        mpdd_ver_maj;
-extern const int        mpdd_ver_min;
-extern const int        mpdd_ver_mic;
+extern const int mpdd_ver_num;
+extern const int mpdd_ver_maj;
+extern const int mpdd_ver_min;
+extern const int mpdd_ver_mic;
 
 #endif
 

@@ -14,7 +14,7 @@
 
     Author: Richard Withnell
     github.com/richardwithnell
-*/
+ */
 
 #ifndef MPD_UTIL
 #define MPD_UTIL
@@ -27,22 +27,22 @@
 #define CONFIG "/etc/mpd/mpd.conf"
 #define IGNORE_CONFIG "/etc/mpd/ignore.conf"
 
-#define NET_MP_MODE_OFF 0x02;
-#define NET_MP_MODE_BACKUP 0x03;
-#define NET_MP_MODE_HANDOVER 0x04;
-#define NET_MP_MODE_ON 0x01;
+#define NET_MP_MODE_OFF 0x02
+#define NET_MP_MODE_BACKUP 0x03
+#define NET_MP_MODE_HANDOVER 0x04
+#define NET_MP_MODE_ON 0x01
 
+#include <arpa/inet.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
-#include <arpa/inet.h>
 
 uint32_t lookup_cidr(uint32_t netmask);
 uint32_t get_ext_ip(uint32_t ip);
-char *trimwhitespace(char *str);
-List* read_config(char *path);
-char *ip_to_str(int ip);
+char* trimwhitespace(char* str);
+List* read_config(char* path);
+char* ip_to_str(int ip);
 void print_ip(int ip);
 int multipath_enabled(void);
 uint8_t get_net_mp_const(int flags);

@@ -14,7 +14,7 @@
 
     Author: Richard Withnell
     github.com/richardwithnell
-*/
+ */
 
 #ifndef MPD_NETWORK
 #define MPD_NETWORK
@@ -55,6 +55,6 @@
 /*WiMax Technologies*/
 #define LINK_CAT_WIMAX_DEF 0x00
 
-#define LINK_TECHNOLOGY(maj,min)	((maj) << 8 | (min))
+#define LINK_TECHNOLOGY(maj,min)    ((maj) << 8 | (min))
 
 #endif

@@ -16,11 +16,11 @@
     github.com/richardwithnell
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <libconfig.h>
 #include <errno.h>
 #include <error.h>
+#include <libconfig.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "config.h"
@@ -30,71 +30,73 @@
 #define MAX_LINE_SIZE 512
 
 #if (((LIBCONFIG_VER_MAJOR == 1) && (LIBCONFIG_VER_MINOR >= 4)) \
-	|| (LIBCONFIG_VER_MAJOR > 1))
+        || (LIBCONFIG_VER_MAJOR > 1))
 /* use features present in libconfig 1.4 and later */
 #endif
 
 /*Quick and dirty, should realloc xbytes instead of alloc max_size*/
-int readline(char **line, size_t* max_size, FILE *fp)
+int readline(char** line, size_t* max_size, FILE* fp)
 {
 	char c = 0;
 	int size = *max_size;
-	char *ptr = (char*)0;
+	char* ptr = (char*)0;
 
 	*line = malloc(sizeof(char) * size);
 
 	ptr = *line;
 
-	if (!line) {
+	if (!line)
 		return 0;
-	}
 
-	if (max_size <= 0) {
+	if (max_size <= 0)
 		return 0;
-	}
 
-	if (!fp) {
+	if (!fp)
 		return -1;
-	}
 
-	while ((c = fgetc(fp)) != '\n' && c != EOF && (ptr - *line) < size - 1) {
+	while ((c = fgetc(fp)) != '\n' && c != EOF && (ptr - *line) < size - 1)
 		*ptr++ = c;
-	}
 
 	*ptr = '\0';
 	return (int)(ptr - *line);
 }
 
-struct mpd_config * load_min_config(char *path)
+struct mpd_config* load_min_config(char* path)
 {
-	FILE *fp;
-	char *host_id = (char*)0;
-	char *line_in = (char*)0;
-	char *tok = (char*)0;
+	FILE* fp;
+	char* host_id = (char*)0;
+	char* line_in = (char*)0;
+	char* tok = (char*)0;
 	int max_size = MAX_LINE_SIZE;
-	struct mpd_config *mpd = (struct mpd_config*)0;
+	struct mpd_config* mpd = (struct mpd_config*)0;
 	int read = 0;
-	List *ignore = (List*)0;
-	List *diss = (List*)0;
+	int heartbeat = 0;
+	int update_timeout = 0;
+	List* ignore = (List*)0;
+	List* diss = (List*)0;
 
-	if (!path) {
+	if (!path)
+	{
 		print_debug("Failed to load config, path is NULL.\n");
 		return 0;
 	}
 
-	if (!(line_in = malloc(MAX_LINE_SIZE))) {
+	if (!(line_in = malloc(MAX_LINE_SIZE)))
+	{
 		print_error("Failed to allocate memory for line_in\n");
 		errno = ENOMEM;
 		return 0;
 	}
 
-	if (!(host_id = malloc(MAX_HOST_ID_SIZE))) {
+	if (!(host_id = malloc(MAX_HOST_ID_SIZE)))
+	{
 		print_error("Failed to allocate memory for host_id\n");
 		errno = ENOMEM;
 		return 0;
 	}
 
-	if (!(mpd = malloc(sizeof(struct mpd_config)))) {
+	if (!(mpd = malloc(sizeof(struct mpd_config))))
+	{
 		print_error("Failed to allocate memory for mpd config\n");
 		errno = ENOMEM;
 		return 0;
@@ -104,14 +106,16 @@ struct mpd_config * load_min_config(char *path)
 	mpd->diss = (List*)0;
 	mpd->ignore = (List*)0;
 
-	if (!(ignore = malloc(sizeof(List)))) {
+	if (!(ignore = malloc(sizeof(List))))
+	{
 		print_error("Failed to allocate memory for ignore interface list\n");
 		errno = ENOMEM;
 		free(mpd);
 		return 0;
 	}
 
-	if (!(diss = malloc(sizeof(List)))) {
+	if (!(diss = malloc(sizeof(List))))
+	{
 		print_error("Failed to allocate memory for diss interface list\n");
 		errno = ENOMEM;
 		free(ignore);
@@ -120,7 +124,8 @@ struct mpd_config * load_min_config(char *path)
 	}
 
 	fp = fopen(path, "r"); // read mode
-	if (!fp) {
+	if (!fp)
+	{
 		print_error("Failed to open config file: %s\n", path);
 		return 0;
 	}
@@ -133,12 +138,13 @@ struct mpd_config * load_min_config(char *path)
 	memset(host_id, 0, MAX_HOST_ID_SIZE);
 
 	read = readline(&line_in, (size_t*)&max_size, fp);
-	if (!read) {
+	if (!read)
+	{
 		print_debug("Failed parsing file\n");
 		return 0;
 	}
 
-	char *strptr = line_in;
+	char* strptr = line_in;
 	strptr = trimwhitespace(strptr);
 	memcpy(host_id, strptr, strlen(strptr));
 	print_debug("ID: %s\n", host_id);
@@ -146,15 +152,18 @@ struct mpd_config * load_min_config(char *path)
 	/*Read Dissemination Interfaces*/
 	memset(line_in, 0, MAX_LINE_SIZE);
 	read = readline(&line_in, (size_t*)&max_size, fp);
-	if (!read) {
+	if (!read)
+	{
 		print_debug("Failed parsing file\n");
 		return 0;
 	}
 	tok = strtok(line_in, ",");
-	while (tok) {
-		Litem *item = (Litem*)0;
+	while (tok)
+	{
+		Litem* item = (Litem*)0;
 		//tok = trimwhitespace(tok);
-		if (!(item = malloc(sizeof(Litem)))) {
+		if (!(item = malloc(sizeof(Litem))))
+		{
 			list_destroy(ignore);
 			list_destroy(diss);
 			free(mpd);
@@ -162,7 +171,8 @@ struct mpd_config * load_min_config(char *path)
 			return 0;
 		}
 
-		if (!(item->data = malloc(strlen(tok) + 1))) {
+		if (!(item->data = malloc(strlen(tok) + 1)))
+		{
 			free(item);
 			free(ignore);
 			free(diss);
@@ -181,15 +191,18 @@ struct mpd_config * load_min_config(char *path)
 	/*Read Ignore Interfaces*/
 	memset(line_in, 0, MAX_LINE_SIZE);
 	read = readline(&line_in, (size_t*)&max_size, fp);
-	if (!read) {
+	if (!read)
+	{
 		print_debug("Failed parsing file\n");
 		return 0;
 	}
 	tok = strtok(line_in, ",");
-	while (tok) {
-		Litem *item = (Litem*)0;
+	while (tok)
+	{
+		Litem* item = (Litem*)0;
 		//tok = trimwhitespace(tok);
-		if (!(item = malloc(sizeof(Litem)))) {
+		if (!(item = malloc(sizeof(Litem))))
+		{
 			list_destroy(ignore);
 			list_destroy(diss);
 			free(mpd);
@@ -197,7 +210,8 @@ struct mpd_config * load_min_config(char *path)
 			return 0;
 		}
 
-		if (!(item->data = malloc(strlen(tok) + 1))) {
+		if (!(item->data = malloc(strlen(tok) + 1)))
+		{
 			free(item);
 			free(ignore);
 			free(diss);
@@ -226,29 +240,32 @@ struct mpd_config * load_min_config(char *path)
 	return mpd;
 }
 
-
 /**
  *
  */
-struct mpd_config * load_config(char *path)
+struct mpd_config* load_config(char* path)
 {
-	const char *host_id;
-	struct mpd_config *mpd = (struct mpd_config*)0;
-	config_t *conf = (config_t*)0;
+	const char* host_id;
+	struct mpd_config* mpd = (struct mpd_config*)0;
+	config_t* conf = (config_t*)0;
 	config_t cfg;
-	config_setting_t *setting = (config_setting_t*)0;
+	config_setting_t* setting = (config_setting_t*)0;
 	int host = 0;
+	int heartbeat = 0;
+	int update_timeout = 0;
 	int count = 0;
 	int i = 0;
-	List *ignore = (List*)0;
-	List *diss = (List*)0;
+	List* ignore = (List*)0;
+	List* diss = (List*)0;
 
-	if (!path) {
+	if (!path)
+	{
 		print_debug("Failed to load config, path is NULL.\n");
 		return 0;
 	}
 
-	if (!(mpd = malloc(sizeof(struct mpd_config)))) {
+	if (!(mpd = malloc(sizeof(struct mpd_config))))
+	{
 		print_error("Failed to allocate memory for diss interface list\n");
 		errno = ENOMEM;
 		return 0;
@@ -258,14 +275,16 @@ struct mpd_config * load_config(char *path)
 	mpd->diss = (List*)0;
 	mpd->ignore = (List*)0;
 
-	if (!(ignore = malloc(sizeof(List)))) {
+	if (!(ignore = malloc(sizeof(List))))
+	{
 		print_error("Failed to allocate memory for ignore interface list\n");
 		errno = ENOMEM;
 		free(mpd);
 		return 0;
 	}
 
-	if (!(diss = malloc(sizeof(List)))) {
+	if (!(diss = malloc(sizeof(List))))
+	{
 		print_error("Failed to allocate memory for diss interface list\n");
 		errno = ENOMEM;
 		free(ignore);
@@ -276,47 +295,59 @@ struct mpd_config * load_config(char *path)
 	conf = &cfg;
 	config_init(conf);
 
-	if (!conf) {
+	if (!conf)
+	{
 		print_error("Config file is null.");
 		return 0;
 	}
 
-	if (config_read_file(conf, path) == CONFIG_FALSE) {
+	if (config_read_file(conf, path) == CONFIG_FALSE)
+	{
 		print_error("Failed parsing config: %s : %d : %s : %d\n",
-					config_error_file(conf),
-					config_error_line(conf),
-					config_error_text(conf),
-					(int)config_error_type(conf));
+		            config_error_file(conf),
+		            config_error_line(conf),
+		            config_error_text(conf),
+		            (int)config_error_type(conf));
 		free(ignore);
 		free(diss);
 		free(mpd);
 		return 0;
 	}
 
-	if (config_lookup_string(conf, "host_id", &host_id) == CONFIG_FALSE) {
+	if (config_lookup_string(conf, "host_id", &host_id) == CONFIG_FALSE)
 		print_debug("No host_id value, using default\n");
 	//	host_id = malloc(MAX_HOST_ID_SIZE);
 	//	strcpy(host_id, "def_host\0");
-	}
 
-	if (config_lookup_bool(conf, "application.host", &host) == CONFIG_FALSE) {
+	if (config_lookup_bool(conf, "application.host", &host) == CONFIG_FALSE)
 		print_debug("No host value, using default\n");
-	}
 	print_debug("Host set to %d\n", host);
+
+	if (config_lookup_int(conf, "application.heartbeat", &heartbeat)
+	    == CONFIG_FALSE)
+		print_debug("No hearbeat value, using default\n");
+	print_debug("Hearbeat set to %d\n", heartbeat);
+
+	if (config_lookup_int(conf, "application.update_timeout", &update_timeout)
+	    == CONFIG_FALSE)
+		print_debug("No update_timeout value, using default\n");
+	print_debug("update_timeout set to %d\n", update_timeout);
 
 	list_init(ignore);
 
-	if ((setting = config_lookup(conf, "application.ignore"))) {
+	if ((setting = config_lookup(conf, "application.ignore")))
+	{
 		print_debug("Parsing ignore interfaces\n");
 		count = config_setting_length(setting);
-		for (i = 0; i < count; i++) {
-			Litem *item = (Litem*)0;
-			const char *iffname = config_setting_get_string_elem(setting, i);
-			if (!iffname) {
+		for (i = 0; i < count; i++)
+		{
+			Litem* item = (Litem*)0;
+			const char* iffname = config_setting_get_string_elem(setting, i);
+			if (!iffname)
 				break;
-			}
 
-			if (!(item = malloc(sizeof(Litem)))) {
+			if (!(item = malloc(sizeof(Litem))))
+			{
 				list_destroy(ignore);
 				list_destroy(diss);
 				free(mpd);
@@ -324,7 +355,8 @@ struct mpd_config * load_config(char *path)
 				return 0;
 			}
 
-			if (!(item->data = malloc(strlen(iffname) + 1))) {
+			if (!(item->data = malloc(strlen(iffname) + 1)))
+			{
 				free(item);
 				free(ignore);
 				free(diss);
@@ -339,23 +371,25 @@ struct mpd_config * load_config(char *path)
 
 			print_debug("  Diss (%d) %s\n", i + 1, iffname);
 		}
-	} else {
-		print_debug("No interfaces to ignore have been specified\n");
 	}
+	else
+		print_debug("No interfaces to ignore have been specified\n");
 
 	list_init(diss);
 
-	if ((setting = config_lookup(conf, "application.dissemination"))) {
+	if ((setting = config_lookup(conf, "application.dissemination")))
+	{
 		print_debug("Parsing dissemination interfaces\n");
 		count = config_setting_length(setting);
-		for (i = 0; i < count; i++) {
-			Litem *item = (Litem*)0;
-			const char *iffname = config_setting_get_string_elem(setting, i);
-			if (!iffname) {
+		for (i = 0; i < count; i++)
+		{
+			Litem* item = (Litem*)0;
+			const char* iffname = config_setting_get_string_elem(setting, i);
+			if (!iffname)
 				break;
-			}
 
-			if (!(item = malloc(sizeof(Litem)))) {
+			if (!(item = malloc(sizeof(Litem))))
+			{
 				list_destroy(ignore);
 				list_destroy(diss);
 				free(mpd);
@@ -363,7 +397,8 @@ struct mpd_config * load_config(char *path)
 				return 0;
 			}
 
-			if (!(item->data = malloc(strlen(iffname) + 1))) {
+			if (!(item->data = malloc(strlen(iffname) + 1)))
+			{
 				free(item);
 				free(ignore);
 				free(diss);
@@ -378,9 +413,9 @@ struct mpd_config * load_config(char *path)
 
 			print_debug("  Diss (%d) %s\n", i + 1, iffname);
 		}
-	} else {
-		print_debug("No interfaces to disseminate onto have been specified\n");
 	}
+	else
+		print_debug("No interfaces to disseminate onto have been specified\n");
 
 	config_destroy(conf);
 
@@ -388,6 +423,8 @@ struct mpd_config * load_config(char *path)
 	mpd->host = host;
 	mpd->ignore = ignore;
 	mpd->diss = diss;
+	mpd->heartbeat = hearbeat;
+	mpd->update_timeout = updatetimeout;
 
 	return mpd;
 }

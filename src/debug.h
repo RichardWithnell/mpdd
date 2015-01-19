@@ -14,7 +14,7 @@
 
     Author: Richard Withnell
     github.com/richardwithnell
-*/
+ */
 
 #ifndef __DEBUG_H__
 #define __DEBUG_H__
@@ -62,75 +62,73 @@
 
 #include <time.h>
 
+#define print_eval(fmt, ...) \
+        do { if(DO_EVAL) fprintf(stdout,  "EVAL:" fmt, \
+		                 ## __VA_ARGS__); } while (0);
+
+#define print_log(fmt, ...) \
+        do { \
+		struct timespec monotime; \
+		clock_gettime(CLOCK_MONOTONIC, &monotime); \
+		if(DO_LOG) \
+			fprintf(stdout,  "LOG:%s:%d:%s():%lld: " \
+			        fmt, __FILE__, __LINE__, __func__, \
+			        (long long)monotime.tv_sec, \
+			        ## __VA_ARGS__); \
+	} while (0)
+
+#define print_error(fmt, ...) \
+        do { \
+		struct timespec monotime; \
+		clock_gettime(CLOCK_MONOTONIC, &monotime); \
+		if(DO_ERROR) \
+			fprintf(stderr, "ERROR:%s:%d:%s():%lld: " \
+			        fmt, __FILE__, __LINE__, __func__, \
+			        (long long)monotime.tv_sec, \
+			        ## __VA_ARGS__); \
+	} while (0)
+
+#define print_debug(fmt, ...) \
+        do { \
+		struct timespec monotime; \
+		clock_gettime(CLOCK_MONOTONIC, &monotime); \
+		if(DO_DEBUG) \
+			fprintf(stdout, "DEBUG:%s:%d:%s():%lld:  " \
+			        fmt, __FILE__, __LINE__, __func__, \
+			        (long long)monotime.tv_sec, \
+			        ## __VA_ARGS__); \
+	} while (0)
+
+#define print_verb(fmt, ...) \
+        do { struct timespec monotime; \
+	     clock_gettime(CLOCK_MONOTONIC, &monotime); \
+	     if(DO_VERB) \
+		     fprintf(stdout,  "VERB:%s:%d:%s():%lld: " \
+		             fmt, __FILE__, __LINE__, __func__, \
+		             (long long)monotime.tv_sec, \
+		             ## __VA_ARGS__); \
+	} while (0)
+#else // ifdef DCE_NS3_FIX
 
 #define print_eval(fmt, ...) \
         do { if(DO_EVAL) fprintf(stdout,  "EVAL:" fmt, \
-                                 ## __VA_ARGS__); } while (0);
-
+		                 ## __VA_ARGS__); } while (0)
 
 #define print_log(fmt, ...) \
-            do { \
-                struct timespec monotime; \
-                clock_gettime(CLOCK_MONOTONIC, &monotime); \
-                if(DO_LOG) \
-                    fprintf(stdout,  "LOG:%s:%d:%s():%lld: " \
-                        fmt, __FILE__, __LINE__, __func__, \
-                        (long long)monotime.tv_sec, \
-                        ## __VA_ARGS__); \
-            } while (0)
+        do { if(DO_LOG) fprintf(stdout,  "LOG:%s:%d:%s(): " fmt, __FILE__, \
+		                __LINE__, __func__, ## __VA_ARGS__); } while (0)
 
 #define print_error(fmt, ...) \
-            do { \
-                struct timespec monotime; \
-                clock_gettime(CLOCK_MONOTONIC, &monotime); \
-                if(DO_ERROR) \
-                    fprintf(stderr, "ERROR:%s:%d:%s():%lld: " \
-                        fmt, __FILE__, __LINE__, __func__, \
-                        (long long)monotime.tv_sec, \
-                        ## __VA_ARGS__); \
-            } while (0)
+        do { if(DO_ERROR) fprintf(stderr, "ERROR:%s:%d:%s(): " fmt, __FILE__, \
+		                  __LINE__, __func__, ## __VA_ARGS__); } while (0)
 
 #define print_debug(fmt, ...) \
-            do { \
-                struct timespec monotime; \
-                clock_gettime(CLOCK_MONOTONIC, &monotime); \
-                if(DO_DEBUG) \
-                    fprintf(stdout, "DEBUG:%s:%d:%s():%lld:  " \
-                        fmt, __FILE__, __LINE__, __func__, \
-                        (long long)monotime.tv_sec, \
-                        ## __VA_ARGS__); \
-            } while (0)
+        do { if(DO_DEBUG) fprintf(stdout, "DEBUG:%s:%d:%s(): " fmt, __FILE__, \
+		                  __LINE__, __func__, ## __VA_ARGS__); } while (0)
 
 #define print_verb(fmt, ...) \
-            do { struct timespec monotime; \
-                clock_gettime(CLOCK_MONOTONIC, &monotime); \
-                if(DO_VERB) \
-                    fprintf(stdout,  "VERB:%s:%d:%s():%lld: " \
-                        fmt, __FILE__, __LINE__, __func__, \
-                        (long long)monotime.tv_sec, \
-                         ## __VA_ARGS__); \
-            } while (0)
-#else
-
-    #define print_eval(fmt, ...) \
-    do { if(DO_EVAL) fprintf(stdout,  "EVAL:" fmt, \
-    ## __VA_ARGS__); } while (0)
-
-    #define print_log(fmt, ...) \
-    do { if(DO_LOG) fprintf(stdout,  "LOG:%s:%d:%s(): " fmt, __FILE__, \
-    __LINE__, __func__, ## __VA_ARGS__); } while (0)
-
-    #define print_error(fmt, ...) \
-    do { if(DO_ERROR) fprintf(stderr, "ERROR:%s:%d:%s(): " fmt, __FILE__, \
-    __LINE__, __func__, ## __VA_ARGS__); } while (0)
-
-    #define print_debug(fmt, ...) \
-    do { if(DO_DEBUG) fprintf(stdout, "DEBUG:%s:%d:%s(): " fmt, __FILE__, \
-    __LINE__, __func__, ## __VA_ARGS__); } while (0)
-
-    #define print_verb(fmt, ...) \
-    do { if(DO_VERB) fprintf(stdout,  "VERB :%s:%d:%s(): " fmt, __FILE__, \
-    __LINE__, __func__, ## __VA_ARGS__); } while (0)
+        do { if(DO_VERB) fprintf(stdout,  "VERB :%s:%d:%s(): " fmt, __FILE__, \
+		                 __LINE__, __func__, ## __VA_ARGS__); } while (0)
 
 #endif
 

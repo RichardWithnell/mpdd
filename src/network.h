@@ -14,20 +14,20 @@
 
     Author: Richard Withnell
     github.com/richardwithnell
-*/
+ */
 
 #ifndef MPD_NETWORK
 #define MPD_NETWORK
 
-#include <sys/socket.h>
+#include "interface.h"
+#include "link_monitor.h"
+#include "list.h"
+#include "queue.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include "link_monitor.h"
-#include "interface.h"
-#include "list.h"
-#include "queue.h"
+#include <sys/socket.h>
 
 #define DISS_MODE_MESH 0x00
 #define DISS_MODE_TREE 0x01
@@ -51,65 +51,69 @@
 #define ENTRY_TYPE_DEL 0x00
 #define ENTRY_TYPE_ADD 0x01
 
-struct mpdentry {
-    uint32_t address;
-    uint32_t netmask;
+struct mpdentry
+{
+	uint32_t address;
+	uint32_t netmask;
 	uint32_t gateway;
 	uint32_t ext_ip;
 	uint8_t depth;
-    uint8_t type;
+	uint8_t type;
 } __attribute__((__packed__));
 
-struct mpdhdr {
-    uint8_t type;
-    uint8_t num;
+struct mpdhdr
+{
+	uint8_t type;
+	uint8_t num;
 } __attribute__((__packed__));
 
-struct mpdpacket {
-    struct mpdhdr *header;
-    struct mpdentry *entry;
+struct mpdpacket
+{
+	struct mpdhdr* header;
+	struct mpdentry* entry;
 } __attribute__((__packed__));
 
-struct send_queue {
-    struct queue receive_queue;
-    int flag;
-    int request_flag;
-    struct queue request_queue;
-    List *iff_list;
-    List *virt_list;
-    List *old_virt_list;
-    struct cache_monitor *mon_data;
-    pthread_mutex_t flag_lock;
-    pthread_mutex_t request_flag_lock;
-    pthread_mutex_t iff_list_lock;
-    pthread_mutex_t virt_list_lock;
+struct send_queue
+{
+	struct queue receive_queue;
+	int flag;
+	int request_flag;
+	struct queue request_queue;
+	List* iff_list;
+	List* virt_list;
+	List* old_virt_list;
+	struct cache_monitor* mon_data;
+	pthread_mutex_t flag_lock;
+	pthread_mutex_t request_flag_lock;
+	pthread_mutex_t iff_list_lock;
+	pthread_mutex_t virt_list_lock;
 
-    int running;
+	int running;
 };
 
-struct network_update {
-    struct sockaddr_in addr;
-    struct mpdpacket pkt;
+struct network_update
+{
+	struct sockaddr_in addr;
+	struct mpdpacket pkt;
 };
 
-void* recv_broadcast(struct send_queue *squeue);
+void* recv_broadcast(struct send_queue* squeue);
 
-int serialize_packet(struct mpdpacket *pkt, unsigned char** buffer);
-int deserialize_packet(unsigned char* buffer, struct mpdpacket **pkt);
+int serialize_packet(struct mpdpacket* pkt, unsigned char** buffer);
+int deserialize_packet(unsigned char* buffer, struct mpdpacket** pkt);
 
-int create_update_packet(struct physical_interface *iff, struct mpdpacket** packet);
-int create_request_packet(struct mpdpacket **packet);
+int create_update_packet(struct physical_interface* iff, struct mpdpacket** packet);
+int create_request_packet(struct mpdpacket** packet);
 
-void print_packet(struct mpdpacket *pkt);
-int do_broadcast(struct physical_interface *i,
-  int sock,
-  unsigned char* buffer,
-  int len);
-int send_update_broadcast(List *iff_list, int sock);
-int send_request_broadcast(struct physical_interface *iff, int sock);
+void print_packet(struct mpdpacket* pkt);
+int do_broadcast(struct physical_interface* i,
+                 int sock,
+                 unsigned char* buffer,
+                 int len);
+int send_update_broadcast(List* iff_list, int sock);
+int send_request_broadcast(struct physical_interface* iff, int sock);
 
-
-int create_socket(struct physical_interface *i);
+int create_socket(struct physical_interface* i);
 
 #endif
 

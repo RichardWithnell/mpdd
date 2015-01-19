@@ -14,41 +14,43 @@
 
     Author: Richard Withnell
     github.com/richardwithnell
-*/
+ */
 
 #ifndef MPD_LINK_MONITOR
 #define MPD_LINK_MONITOR
 
-#include <netlink/route/link.h>
-#include <netlink/route/route.h>
-#include <netlink/route/rtnl.h>
-#include <netlink/route/addr.h>
-#include <netlink/route/nexthop.h>
-#include <netlink/route/rule.h>
-#include <netlink/netlink.h>
-#include <netlink/utils.h>
+#include <netlink/addr.h>
+#include <netlink/cache.h>
 #include <netlink/data.h>
 #include <netlink/netlink.h>
-#include <netlink/cache.h>
-#include <netlink/addr.h>
+#include <netlink/netlink.h>
 #include <netlink/object.h>
-#include <semaphore.h>
+#include <netlink/route/addr.h>
+#include <netlink/route/link.h>
+#include <netlink/route/nexthop.h>
+#include <netlink/route/route.h>
+#include <netlink/route/rtnl.h>
+#include <netlink/route/rule.h>
+#include <netlink/utils.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #include "queue.h"
-struct cache_monitor {
-    Queue *queue;
-    pthread_mutex_t *lock;
-    sem_t *barrier;
-    struct nl_cache *addr_cache;
-    struct nl_cache *link_cache;
-    struct nl_cache *route_cache;
+struct cache_monitor
+{
+	Queue* queue;
+	pthread_mutex_t* lock;
+	sem_t* barrier;
+	struct nl_cache* addr_cache;
+	struct nl_cache* link_cache;
+	struct nl_cache* route_cache;
 };
 
-struct update_obj {
-    int action;
-    int type;
-    void *update;
+struct update_obj
+{
+	int action;
+	int type;
+	void* update;
 };
 
 #define UPDATE_LINK 1
@@ -65,7 +67,7 @@ struct update_obj {
 #define ADD_RT 0x05
 #define DEL_RT 0x06
 
-void init_monitor(void *data);
+void init_monitor(void* data);
 
 #endif
 
