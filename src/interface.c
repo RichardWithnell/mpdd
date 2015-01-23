@@ -16,6 +16,10 @@
     github.com/richardwithnell
  */
 
+/*
+ * TODO split this into two files,
+ */
+
 #include "debug.h"
 #include "interface.h"
 
@@ -30,6 +34,9 @@ struct virtual_interface* create_alias(struct nl_sock* sock,
                                        struct physical_interface* iff,
                                        struct interface* p,
                                        List* virt_list);
+
+char host_name[32];
+
 /*
  *
  */
@@ -460,7 +467,9 @@ add_addr(
             create_rule_for_gw(sock, v, v->out->super.ifidx);
         }
 
-        v->external_ip = v->out->external_ip;
+        if(!v->external_ip) {
+            v->external_ip = v->out->external_ip;
+        }
 
         return (struct interface*)v;
     } else {
@@ -535,6 +544,7 @@ delete_address_rtnl(struct nl_sock* sock, struct rtnl_addr* addr, List* iff_list
     uint32_t vaddr = (uint32_t)0;
     struct nl_addr* local = (struct nl_addr*)0;
     char* label = (char*)0;
+    int ret_val = 0;
 
     if (!addr) {
         print_debug("Addr struct is null\n");
@@ -557,6 +567,9 @@ delete_address_rtnl(struct nl_sock* sock, struct rtnl_addr* addr, List* iff_list
         Litem* temp_item = (Litem*)0;
         print_debug("Deleting virtual address\n");
         int i = 0;
+
+        ret_val = 1;
+
         list_for_each(vitem, virt_list){
             struct virtual_interface* virt =
                 (struct virtual_interface*)vitem->data;
@@ -596,6 +609,7 @@ delete_address_rtnl(struct nl_sock* sock, struct rtnl_addr* addr, List* iff_list
                     delete_rules_by_gw(sock, virt_list, gw);
                     delete_virtual_by_gw(virt_list, gw);
                     flush_table(sock, phys->super.ifidx);
+                    ret_val = 1;
                 }
 
                 if(phys->virt_list) {
@@ -631,7 +645,7 @@ delete_address_rtnl(struct nl_sock* sock, struct rtnl_addr* addr, List* iff_list
         }
     }
 
-    return SUCCESS;
+    return ret_val;
 }
 
 int
@@ -641,8 +655,10 @@ delete_address(
     uint32_t netmask,
     uint8_t ifidx)
 {
+    int ret = 0;
     struct rtnl_addr* addr = (struct rtnl_addr*)0;
     struct nl_addr* local = (struct nl_addr*)0;
+    uint32_t plen = 0;
 
     addr = rtnl_addr_alloc();
 
@@ -659,22 +675,33 @@ delete_address(
         return FAILURE;
     }
 
-    print_debug("Built address: %s\n",
-                ip_to_str(*(uint32_t*)nl_addr_get_binary_addr((struct nl_addr*)local)));
+    print_debug("Netmask: %s IDX: %d\n",
+                ip_to_str(htonl(netmask)), ifidx);
+
+    plen = lookup_cidr(htonl(netmask));
+
+    print_debug("Built address: %s/%d\n",
+                ip_to_str(htonl(*(uint32_t*)
+                                nl_addr_get_binary_addr((struct nl_addr*)local))),
+                plen);
 
     rtnl_addr_set_local(addr, local);
-    rtnl_addr_set_prefixlen(addr, lookup_cidr(netmask));
+    rtnl_addr_set_prefixlen(addr, plen);
     rtnl_addr_set_family(addr, AF_INET);
     rtnl_addr_set_ifindex(addr, ifidx);
 
-    if (rtnl_addr_delete(sock, addr, 0)) {
+    ret = rtnl_addr_delete(sock, addr, 0);
+    if (ret) {
+        print_error("Delete address failed: %s - %s\n",
+                    nl_geterror(ret),
+                    ip_to_str(htonl(*(uint32_t*)
+                                    nl_addr_get_binary_addr((struct nl_addr*)local))));
         nl_addr_put(local);
         rtnl_addr_put(addr);
         return FAILURE;
     }
-
+    print_debug("Delete address succeeded\n");
     nl_addr_put(local);
-
     rtnl_addr_put(addr);
     return SUCCESS;
 }
@@ -766,7 +793,16 @@ add_route(struct nl_sock* sock,
     print_debug("get_external_ip\n");
     p->external_ip = get_ext_ip(p->address);
     if(p->external_ip) {
-        printf("External IP: %s\n", ip_to_str(htonl(p->external_ip)));
+        print_debug("External IP: %s\n", ip_to_str(htonl(p->external_ip)));
+#ifdef EVAL
+        struct timespec monotime;
+        clock_gettime(CLOCK_REALTIME, &monotime);
+        print_eval("NR:%s:%s:%lld.%.9ld\n",
+                   host_name,
+                   ip_to_str(p->external_ip),
+                   (long long)monotime.tv_sec,
+                   (long)monotime.tv_nsec);
+#endif
     } else {
         print_debug("Failed to get external IP address\n");
     }
@@ -784,6 +820,16 @@ int delete_route_from_physical(List* l, uint32_t route)
 
         if (iff->gateway == route) {
             iff->gateway = 0;
+
+#ifdef EVAL
+            struct timespec monotime;
+            clock_gettime(CLOCK_REALTIME, &monotime);
+            print_eval("DR:%s:%s:%lld.%.9ld\n",
+                       host_name,
+                       ip_to_str(iff->external_ip),
+                       (long long)monotime.tv_sec,
+                       (long)monotime.tv_nsec);
+#endif
         }
     }
     return 0;
@@ -1019,6 +1065,7 @@ delete_route(
     delete_rules_by_gw(sock, virt_list, binary_gw);
     delete_virtual_by_gw(virt_list, binary_gw);
     flush_table(sock, ifidx);
+
     return SUCCESS;
 }
 
@@ -1117,9 +1164,15 @@ create_alias(struct nl_sock* sock,
         v->gateway = ((struct virtual_interface*)p)->gateway;
         v->out = ((struct virtual_interface*)p)->out;
         v->table = ((struct virtual_interface*)p)->table;
+        v->external_ip = ((struct virtual_interface*)p)->external_ip;
+        print_debug("Assigning Ext IP: %s from virt\n",
+                    ip_to_str(((struct virtual_interface*)p)->external_ip));
     } else {
         v->gateway = ((struct physical_interface*)p)->gateway;
         v->out = (struct physical_interface*)p;
+        v->external_ip = ((struct physical_interface*)p)->external_ip;
+        print_debug("Assigning Ext IP: %s from phys\n",
+                    ip_to_str(((struct physical_interface*)p)->external_ip));
     }
     v->attach = iff;
 
@@ -1137,8 +1190,14 @@ create_alias(struct nl_sock* sock,
     }
 
     item->data = (void*)v;
-    list_put(iff->virt_list, item);
 
+    print_debug("add_address prelist put to %s (%d)\n", iff->super.ifname,
+                list_size(iff->virt_list));
+    list_put(iff->virt_list, item);
+    print_debug("add_address ppostlist put to %s (%d)\n", iff->super.ifname,
+                list_size(iff->virt_list));
+
+    print_debug("calling add_address() to %s\n", iff->super.ifname);
     add_address(sock, ip, iff->super.ifidx, list_size(iff->virt_list));
 
     return v;
@@ -1393,6 +1452,7 @@ add_default_route(struct nl_sock* sock, unsigned int ip, int table, int ifidx)
 int
 add_address(struct nl_sock* sock, unsigned int ip, int ifidx, int label)
 {
+    print_debug("Start: %d\n", label);
     struct rtnl_addr* addr = 0;
     struct nl_addr* local = 0;
     struct nl_cache* cache = 0;
@@ -1411,7 +1471,7 @@ add_address(struct nl_sock* sock, unsigned int ip, int ifidx, int label)
     local = nl_addr_build(AF_INET, &ip, 4);
 
     if (!local) {
-        print_debug("Didn't build addr");
+        print_debug("Didn't build addr\n");
         return 0;
     }
     nl_addr2str(local, name, 16);
@@ -1440,8 +1500,7 @@ add_address(struct nl_sock* sock, unsigned int ip, int ifidx, int label)
     rtnl_addr_set_prefixlen(addr, 24);
 
     if ((ret = rtnl_addr_add(sock, addr, 0))) {
-        nl_perror(ret, 0);
-        perror("Failed to add address");
+        print_error("Failed to add address: %s\n", nl_geterror(ret));
         return FAILURE;
     }
 
@@ -1449,6 +1508,7 @@ add_address(struct nl_sock* sock, unsigned int ip, int ifidx, int label)
 
     rtnl_addr_put(addr);
     print_debug("Add Addr successful\n");
+    print_debug("End\n");
     return 0;
 }
 
@@ -1521,7 +1581,7 @@ print_interface(struct interface* i)
                 printf("\t  - Gateway: %s\n",
                        ip_to_str(htonl(virt->gateway)));
                 printf("\t  - External: %s\n",
-                       ip_to_str(htonl(virt->external_ip)));
+                       ip_to_str(virt->external_ip));
                 printf("\n");
             }
         }
@@ -1607,7 +1667,6 @@ find_free_subnet(struct nl_sock* sock)
             free_subnet_cb, &fs);
 
         if (!fs.flag) {
-            printf("RETURNED IP: %u\n", ip);
             return ip;
         }
 
@@ -1720,6 +1779,8 @@ struct physical_interface* init_phys(void)
     p->flags = 0;
     p->socket = 0;
     p->table = 0;
+    p->request_received = 0;
+    p->packet_received = 0;
 
     return p;
 }
