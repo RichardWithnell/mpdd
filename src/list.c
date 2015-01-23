@@ -41,7 +41,11 @@ uint32_t list_empty(List* l)
  */
 uint32_t list_size(List* l)
 {
-    return l->size;
+    if(l) {
+        return l->size;
+    } else {
+        return 0;
+    }
 }
 
 /**
@@ -117,7 +121,7 @@ void list_put(List* l, Litem* new_item)
         l->back->next = new_item;
     }
     l->back = new_item;
-    l->size++;
+    l->size = l->size + 1;
 }
 
 /**
