@@ -46,8 +46,10 @@ struct virtual_interface;
 struct physical_interface;
 struct interface;
 
-#define PHYSICAL_TYPE 0x01
-#define VIRTUAL_TYPE 0x02
+enum {
+    PHYSICAL_TYPE = 0x01,
+    VIRTUAL_TYPE = 0x02
+};
 
 struct interface
 {
@@ -74,11 +76,14 @@ struct physical_interface
     uint32_t external_ip;
     uint8_t diss;
     uint8_t request;
+    uint8_t timed_out;
     uint8_t metric;
     uint8_t depth;
     uint8_t flags;
     uint8_t table;
     uint8_t request_received;
+    uint8_t packet_received;
+    int last_update;
     int socket;
     struct sockaddr_in saddr;
     List* virt_list;

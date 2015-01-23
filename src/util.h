@@ -21,16 +21,21 @@
 
 #include "list.h"
 
-#define IFF_NOMULTIPATH    0x80000        /*Disable for MPTCP        */
-#define IFF_MPBACKUP    0x100000    /*Use as back up path for MPTCP*/
-#define IFF_MPHANDOVER    0x200000
+enum {
+    IFF_NOMULTIPATH = 0x80000,       /*Disable for MPTCP        */
+    IFF_MPBACKUP = 0x100000,  /*Use as back up path for MPTCP*/
+    IFF_MPHANDOVER = 0x200000
+};
+
 #define CONFIG "/etc/mpd/mpd.conf"
 #define IGNORE_CONFIG "/etc/mpd/ignore.conf"
 
-#define NET_MP_MODE_OFF 0x02
-#define NET_MP_MODE_BACKUP 0x03
-#define NET_MP_MODE_HANDOVER 0x04
-#define NET_MP_MODE_ON 0x01
+enum {
+    NET_MP_MODE_OFF = 0x02,
+    NET_MP_MODE_BACKUP = 0x03,
+    NET_MP_MODE_HANDOVER = 0x04,
+    NET_MP_MODE_ON = 0x01
+};
 
 #include <arpa/inet.h>
 #include <ctype.h>

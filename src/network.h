@@ -32,13 +32,17 @@
 #define DISS_MODE_MESH 0x00
 #define DISS_MODE_TREE 0x01
 
-#define MPD_BROADCAST_PORT 12344
-#define MPD_MULTICAST_PORT 12346
-#define MPD_UNICAST_PORT 12347
+enum {
+    MPD_BROADCAST_PORT = 12344,
+    MPD_MULTICAST_PORT = 12346,
+    MPD_UNICAST_PORT = 12347
+};
 
-#define MPD_HDR_REQUEST 0x00
-#define MPD_HDR_UPDATE 0x01
-#define MPD_HDR_HEARTBEAT 0x02
+enum {
+    MPD_HDR_REQUEST  = 0x00,
+    MPD_HDR_UPDATE = 0x01,
+    MPD_HDR_HEARTBEAT = 0x02
+};
 
 //#define NET_MP_MODE_BACKUP 0x03
 //#define NET_MP_MODE_HANDOVER 0x02
@@ -48,8 +52,10 @@
 #define SUCCESS 0x00
 #define FAILURE -0x01
 
-#define ENTRY_TYPE_DEL 0x00
-#define ENTRY_TYPE_ADD 0x01
+enum {
+    ENTRY_TYPE_DEL = 0x00,
+    ENTRY_TYPE_ADD = 0x01
+};
 
 struct mpdentry
 {
@@ -78,6 +84,7 @@ struct send_queue
     struct queue receive_queue;
     int flag;
     int request_flag;
+    int heartbeat_flag;
     struct queue request_queue;
     List* iff_list;
     List* virt_list;
@@ -87,7 +94,8 @@ struct send_queue
     pthread_mutex_t request_flag_lock;
     pthread_mutex_t iff_list_lock;
     pthread_mutex_t virt_list_lock;
-
+    int socket_fd;
+    fd_set wfds;
     int running;
 };
 
@@ -103,7 +111,7 @@ int serialize_packet(struct mpdpacket* pkt, unsigned char** buffer);
 int deserialize_packet(unsigned char* buffer, struct mpdpacket** pkt);
 
 int create_update_packet(struct physical_interface* iff, struct mpdpacket** packet);
-int create_request_packet(struct mpdpacket** packet);
+int create_request_packet(struct mpdpacket** packet, int hflag);
 
 void print_packet(struct mpdpacket* pkt);
 int do_broadcast(struct physical_interface* i,
@@ -111,7 +119,7 @@ int do_broadcast(struct physical_interface* i,
                  unsigned char* buffer,
                  int len);
 int send_update_broadcast(List* iff_list, int sock);
-int send_request_broadcast(struct physical_interface* iff, int sock);
+int send_request_broadcast(struct physical_interface* iff, int sock, int hflag);
 
 int create_socket(struct physical_interface* i);
 

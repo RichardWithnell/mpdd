@@ -53,19 +53,23 @@ struct update_obj
     void* update;
 };
 
-#define UPDATE_LINK 1
-#define UPDATE_ADDR 2
-#define UPDATE_ROUTE 3
-#define UPDATE_GATEWAY 4
+enum {
+    UPDATE_LINK = 0x01,
+    UPDATE_ADDR = 0x02,
+    UPDATE_ROUTE = 0x03,
+    UPDATE_GATEWAY = 0x04
+};
 
-#define ADD_IFF 0x01
-#define DEL_IFF 0x02
-#define ADD_IP 0x03
-#define DEL_IP 0x04
-#define CHANGE_IP 0x07
-#define CHANGE_RT 0x08
-#define ADD_RT 0x05
-#define DEL_RT 0x06
+enum {
+    ADD_IFF = 0x01,
+    DEL_IFF = 0x02,
+    ADD_IP = 0x03,
+    DEL_IP = 0x04,
+    CHANGE_IP = 0x07,
+    CHANGE_RT = 0x08,
+    ADD_RT = 0x05,
+    DEL_RT = 0x06
+};
 
 void init_monitor(void* data);
 
