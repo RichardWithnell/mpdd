@@ -27,7 +27,7 @@ enum {
     LINK_TYPE_CELLULAR = 0x03,
     LINK_TYPE_SATELLITE = 0x04,
     LINK_TYPE_WIMAX = 0x05
-}
+};
 
 /*Ethernet Technologies*/
 enum {
@@ -36,7 +36,7 @@ enum {
     LINK_CAT_ETH_FAST = 0x02,
     LINK_CAT_ETH_GIGABIT = 0x03,
     LINK_CAT_ETH_TEN_GIGABIT = 0x04
-}
+};
 
 /*WLAN Technologies*/
 enum {
@@ -46,7 +46,7 @@ enum {
     LINK_CAT_WLAN_80211G = 0x03,
     LINK_CAT_WLAN_80211N = 0x04,
     LINK_CAT_WLAN_80211AC = 0x05
-}
+};
 
 /*Cellular Technologies*/
 enum {
@@ -59,17 +59,17 @@ enum {
     LINK_CAT_CELLULAR_HSPA = 0x06,
     LINK_CAT_CELLULAR_HSDPA = 0x07,
     LINK_CAT_CELLULAR_HSUPA = 0x08
-}
+};
 
 /*Satellite Technologies*/
 enum {
     LINK_CAT_SATELLITE_DEF = 0x00
-}
+};
 
 /*WiMax Technologies*/
 enum {
     LINK_CAT_WIMAX_DEF = 0x00
-}
+};
 
 #define LINK_TECHNOLOGY(maj,min)    ((maj) << 8 | (min))
 
