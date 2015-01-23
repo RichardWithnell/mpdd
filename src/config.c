@@ -393,7 +393,7 @@ struct mpd_config* load_config(char* path)
 
             print_debug("  Diss (%d) %s\n", i + 1, iffname);
         }
-    } else {
+    } else  {
         print_debug("No interfaces to disseminate onto have been specified\n");
     }
 

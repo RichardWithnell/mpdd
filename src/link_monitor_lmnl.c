@@ -46,7 +46,7 @@ int route_cb(const struct nlmsghdr* nlh, struct update_obj** update)
         return -1;
     }
 
-    if(route->destination) {
+    if (route->destination) {
         print_verb("Not default: %s\n", ip_to_str(htonl(route->gateway)));
         free(route);
         return 0;
@@ -155,7 +155,7 @@ int data_cb(const struct nlmsghdr* nlh, void* data)
     struct update_obj* update = (struct update_obj*)0;
 
     if (nlh->nlmsg_type == RTM_NEWROUTE || nlh->nlmsg_type == RTM_DELROUTE) {
-        if(route_cb(nlh, &update)) {
+        if (route_cb(nlh, &update)) {
             return MNL_CB_OK;
         }
         if (!update) {
