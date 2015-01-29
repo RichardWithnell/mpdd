@@ -21,6 +21,10 @@
 #include <unistd.h>
 
 /*
+ * TODO: Speed this up with libev.
+ */
+
+/*
  *
  */
 int
@@ -139,8 +143,8 @@ void* recv_broadcast(struct send_queue* squeue)
     while (squeue->running) {
         struct mpdpacket* pkt = 0;
 
-        tv.tv_sec = 2;
-        tv.tv_usec = 0;
+        tv.tv_sec = 0;
+        tv.tv_usec = 500;
 
         FD_ZERO(&rfds);
         FD_ZERO(&wfds);
@@ -201,10 +205,15 @@ void* recv_broadcast(struct send_queue* squeue)
                     continue;
                 }
 
-#ifdef LOG
-                print_log("Printing Deserialize packet...\n");
-                print_packet(pkt);
-#endif
+                #ifdef EVAL
+                struct timespec monotime;
+                clock_gettime(CLOCK_REALTIME, &monotime);
+                print_eval("RP:%s:%s:%lld.%.9ld\n",
+                    host_name,
+                    ip_to_str(htonl(saddr.sin_addr.s_addr)),
+                    (long long)monotime.tv_sec,
+                    (long)monotime.tv_nsec);
+                #endif
 
                 if (pkt->header->type == MPD_HDR_UPDATE) {
                     Qitem* item = 0;
@@ -213,19 +222,24 @@ void* recv_broadcast(struct send_queue* squeue)
 
                     print_debug("Found update packet\n");
 
+                    #ifdef EVAL
+                    struct timespec monotime;
+                    clock_gettime(CLOCK_REALTIME, &monotime);
+                    print_eval("RU:%s:%s:%lld.%.9ld\n",
+                        host_name,
+                        ip_to_str(htonl(saddr.sin_addr.s_addr)),
+                        (long long)monotime.tv_sec,
+                        (long)monotime.tv_nsec);
+                    #endif
+
                     if (!(nupdate = malloc(sizeof(struct network_update)))) {
                         errno = ENOMEM;
                         print_debug("malloc failed()\n");
                         continue;
                     }
 
-                    print_debug("Malloced the network update\n");
-
                     memcpy(&(nupdate->addr), &saddr, sizeof(struct sockaddr));
                     memcpy(&(nupdate->pkt), pkt, sizeof(struct mpdpacket));
-
-                    print_debug("Packet: %p\n", pkt);
-                    print_debug("Copied the network update into memory\n");
 
                     if (!(item = malloc(sizeof(Qitem)))) {
                         print_debug("item ENOMEM\n");
@@ -256,10 +270,29 @@ void* recv_broadcast(struct send_queue* squeue)
                     sem_post(mon->barrier);
                 } else if (pkt->header->type == MPD_HDR_REQUEST) {
                     print_debug("Found request packet\n");
-
+                    #ifdef EVAL
+                    struct timespec monotime;
+                    clock_gettime(CLOCK_REALTIME, &monotime);
+                    print_eval("RR:%s:%s:%lld.%.9ld\n",
+                        host_name,
+                        ip_to_str(htonl(saddr.sin_addr.s_addr)),
+                        (long long)monotime.tv_sec,
+                        (long)monotime.tv_nsec);
+                    #endif
                     pthread_mutex_lock(&(squeue->flag_lock));
                     print_debug("Sending update packet onto link\n");
-                    send_update_broadcast(squeue->iff_list, sock);
+                    //send_update_broadcast(squeue->iff_list, sock);
+                    squeue->flag = 1;
+                    pthread_mutex_unlock(&(squeue->flag_lock));
+                } else if (pkt->header->type == MPD_HDR_HEARTBEAT) {
+                    print_debug("Found heartbeat packet\n");
+
+                    pthread_mutex_lock(&(squeue->flag_lock));
+                    //print_debug("Sending update packet onto link\n");
+                    /*Mark to send, if we fall into the receive loop multiple
+                    times only send one response*/
+                    //squeue->flag = 1;
+                    //send_update_broadcast(squeue->iff_list, sock);
                     pthread_mutex_unlock(&(squeue->flag_lock));
                 } else {
                     print_debug("Unknown packet header type\n");
@@ -268,8 +301,8 @@ void* recv_broadcast(struct send_queue* squeue)
                 pthread_mutex_lock(&(squeue->flag_lock));
                 if (squeue->flag) {
                     print_debug("Send flag set\n");
-                    squeue->flag = 0;
                     send_update_broadcast(squeue->iff_list, sock);
+                    squeue->flag = 0;
                 }
                 pthread_mutex_unlock(&(squeue->flag_lock));
 
@@ -279,25 +312,63 @@ void* recv_broadcast(struct send_queue* squeue)
                     Qitem* qitem;
                     while ((qitem = queue_get(&(squeue->request_queue)))) {
                         print_debug("Request flag set\n");
+                        struct physical_interface * phy = qitem->data;
 
-                        send_request_broadcast(
-                            (struct physical_interface*)qitem->data,
-                            sock);
+                        if(!phy) {
+                            continue;
+                        }
+
+                        /*We don't need to send a request, already received packet*/
+                        if(phy->packet_received) {
+                            continue;
+                        }
+
+                        if(!phy->packet_received) {
+                            #ifdef EVAL
+                            struct timespec monotime;
+                            clock_gettime(CLOCK_REALTIME, &monotime);
+                            print_eval("SR:%s:%s:%lld.%.9ld\n",
+                                host_name,
+                                ip_to_str(htonl(phy->address)),
+                                (long long)monotime.tv_sec,
+                                (long)monotime.tv_nsec);
+                            #endif
+                            send_request_broadcast(phy, sock, MPD_HDR_REQUEST);
+                            phy->packet_received = 1;
+                        }
 
                         free(qitem);
                     }
                 }
                 squeue->request_flag = 0;
                 pthread_mutex_unlock(&(squeue->flag_lock));
+
+                pthread_mutex_lock(&(squeue->flag_lock));
+
+                /*Send out heartbeat, interfaces are still here.*/
+                if (squeue->heartbeat_flag) {
+                    Qitem* qitem;
+                    while ((qitem = queue_get(&(squeue->request_queue)))) {
+                        print_debug("Request flag set\n");
+
+                        send_request_broadcast(
+                            (struct physical_interface*)qitem->data,
+                            sock, MPD_HDR_HEARTBEAT);
+
+                        free(qitem);
+                    }
+                    squeue->heartbeat_flag = 0;
+                }
+
+                pthread_mutex_unlock(&(squeue->flag_lock));
+                select(0, 0, 0, 0, &tv);
+#ifdef DCE_NS3_FIX
+                print_debug("NS3FixSleep(1)\n");
+                usleep(1000);
+#endif
             } else if (FD_ISSET(sock, &efds)) {
                 print_debug("Error FDS Set\n");
             }
-
-#ifdef DCE_NS3_FIX
-            print_debug("NS3FixSleep(1)\n");
-            sleep(1);
-#endif
-            select(0, 0, 0, 0, &tv);
             free(pkt);
         } else if (!ret) {
             print_debug("Selected timed out\n");
@@ -354,13 +425,13 @@ do_broadcast(struct physical_interface* i,
  *
  */
 int
-send_request_broadcast(struct physical_interface* iff, int sock)
+send_request_broadcast(struct physical_interface* iff, int sock, int hflag)
 {
     int len = 0;
     struct mpdpacket* packet;
     unsigned char* data = 0;
 
-    if (create_request_packet(&packet) < 0) {
+    if (create_request_packet(&packet, hflag) < 0) {
         print_debug("Create Request Packet Failed\n");
         return FAILURE;
     }
@@ -372,6 +443,7 @@ send_request_broadcast(struct physical_interface* iff, int sock)
 
     print_debug("Sending request on interface - %s\n", iff->super.ifname);
 
+/*
 #ifdef DEBUG
     struct mpdpacket* test_packet;
     printf("Deserialize Packet\n.....");
@@ -379,7 +451,7 @@ send_request_broadcast(struct physical_interface* iff, int sock)
     print_packet(test_packet);
     free(test_packet);
 #endif
-
+*/
     free(packet);
 
     memset(&(iff->saddr), '0', sizeof(struct sockaddr_in));
@@ -416,6 +488,16 @@ send_update_broadcast(List* iff_list, int sock)
 
             print_debug("Create Packet for %s\n", iff->super.ifname);
 
+            #ifdef EVAL
+            struct timespec monotime;
+            clock_gettime(CLOCK_REALTIME, &monotime);
+            print_eval("SU:%s:%s:%lld.%.9ld\n",
+                host_name,
+                ip_to_str(htonl(iff->address)),
+                (long long)monotime.tv_sec,
+                (long)monotime.tv_nsec);
+            #endif
+
             if ((gws = create_update_packet(iff, &packet)) < 0) {
                 print_error("Create Packet Failed: %d\n", gws);
                 continue;
@@ -423,13 +505,14 @@ send_update_broadcast(List* iff_list, int sock)
 
             len = serialize_packet(packet, &data);
             print_debug("Created serialized packet: length %d bytes\n", len);
+            /*
             //#ifdef DEBUG
             struct mpdpacket* test_packet;
             deserialize_packet(data, &test_packet);
             print_packet(test_packet);
             free(test_packet);
             //#endif
-
+            */
             free(packet);
 
             memset(&(iff->saddr), '0', sizeof(struct sockaddr_in));
@@ -562,7 +645,7 @@ deserialize_packet(unsigned char* buffer, struct mpdpacket** pkt)
  *
  */
 int
-create_request_packet(struct mpdpacket** packet)
+create_request_packet(struct mpdpacket** packet, int hflag)
 {
     struct mpdpacket* pkt;
 
@@ -585,7 +668,7 @@ create_request_packet(struct mpdpacket** packet)
         return FAILURE;
     }
 
-    pkt->header->type = MPD_HDR_REQUEST;
+    pkt->header->type = hflag;
     pkt->header->num = 0;
     *packet = (void*)pkt;
 
@@ -662,7 +745,7 @@ create_update_packet(struct physical_interface* iff, struct mpdpacket** packet)
             e->netmask = htonl(virt->netmask);
             //e->gateway = htonl(virt->attach->address);
             e->gateway = 0;
-            e->ext_ip = htonl(virt->out->external_ip);
+            e->ext_ip = htonl(virt->external_ip);
             //e->mp_mode = get_net_mp_const(iff->ifflags);
             //e->mp_mode= 0;
             e->depth = virt->depth;
