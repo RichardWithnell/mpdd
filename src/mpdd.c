@@ -43,8 +43,11 @@
 #include "queue.h"
 #include "util.h"
 
+#define ENABLE_HEARTBEAT 0
+#define ENABLE_LINK_TIMEOUT 0
+
 static const int MAX_DEPTH = 255;
-static const int HEART_BEAT_TIME = 10;
+static const int HEART_BEAT_TIME = 20;
 static const int LINK_CHECK_TIME = 2;
 static const int LINK_TIMEOUT = 100;
 
@@ -53,7 +56,7 @@ static const char DEF_CONFIG_FILE[32] = "/etc/mpd/mpdd_simple.conf";
 static int running = 1;
 
 sem_t update_barrier;
-char host_id [16];
+char host_name[32];
 
 int
 handle_gateway_update(
@@ -65,6 +68,7 @@ handle_gateway_update(
 
 void sig_handler(int signum);
 int cleanup();
+
 static void* flag_heartbeat(void* data);
 static void* check_timeout(void* data);
 
@@ -94,6 +98,7 @@ static void* check_timeout(void* data)
                 if(virt->last_update <= 0) {
                     /*Delete virtual*/
                     /*Add to event list*/
+                    print_debug("Virt %s: timed out\n", ip_to_str(htonl(virt->address)));
                 }
             }
         }
@@ -148,8 +153,9 @@ void print_nexthop_cb(struct rtnl_nexthop* nh, void* args)
     struct timespec monotime;
     char buff[32];
     struct nl_addr* gw = rtnl_route_nh_get_gateway(nh);
-    clock_gettime(CLOCK_MONOTONIC, &monotime);
-    print_eval("NR:%s:%lld.%.9ld\n",
+    clock_gettime(CLOCK_REALTIME, &monotime);
+    print_eval("NR:%s:%s:%lld.%.9ld\n",
+               host_name,
                nl_addr2str(gw, buff, (size_t)32),
                (long long)monotime.tv_sec,
                (long)monotime.tv_nsec);
@@ -254,7 +260,7 @@ main(int argc, char* argv[])
                 LIBNL_VER_MIN,
                 LIBNL_VER_MIC);
 
-    memset(host_id, 0, 16);
+    memset(host_name, 0, 32);
 
     /*Setup libnl socket*/
     if(!(sock = nl_socket_alloc())) {
@@ -336,6 +342,7 @@ main(int argc, char* argv[])
     free(config_path);
     diss_list = config->diss;
     ignore_list = config->ignore;
+    strcpy(host_name, config->host_id);
 
     mon_data.queue = &update_queue;
     mon_data.lock = &update_lock;
@@ -357,10 +364,18 @@ main(int argc, char* argv[])
     squeue.running = 1;
     squeue.mon_data = &mon_data;
 
-    pthread_create(&network_thread, NULL, (void*)&recv_broadcast, (void*)&squeue);
+    pthread_create(&network_thread, NULL,
+                   (void*)&recv_broadcast, (void*)&squeue);
 
-    pthread_create(&heartbeat_thread, NULL, (void*)&flag_heartbeat, (void*)&squeue);
-    pthread_create(&timeout_thread, NULL, (void*)&check_timeout, (void*)&squeue);
+    if(ENABLE_HEARTBEAT) {
+        pthread_create(&heartbeat_thread, NULL,
+                       (void*)&flag_heartbeat, (void*)&squeue);
+    }
+
+    if(ENABLE_LINK_TIMEOUT) {
+        pthread_create(&timeout_thread, NULL,
+                       (void*)&check_timeout, (void*)&squeue);
+    }
 
     while(running) {
         print_debug("Waiting on barrier\n");
@@ -423,10 +438,9 @@ main(int argc, char* argv[])
                         virt = (struct virtual_interface*)iff;
                         /*Check we actually have connectivity
                            TODO make the external IP check continuous*/
-                        if(virt->out->external_ip != 0) {
+                        if(virt->external_ip != 0) {
                             char* external_ip =
-                                ip_to_str(htonl(virt->out->
-                                                external_ip));
+                                ip_to_str(htonl(virt->external_ip));
 
                             print_debug(
                                 "Virtual Interface has Internet "
@@ -451,10 +465,12 @@ main(int argc, char* argv[])
                         qi->data = phys;
 
                         if(phys->diss) {
+                            pthread_mutex_lock(&(squeue.iff_list_lock));
                             add_virt_for_diss(sock,
                                               phys,
                                               iff_list,
                                               virt_list);
+                            pthread_mutex_unlock(&(squeue.iff_list_lock));
                         }
 
                         /*Found a new interface, request MPDD updates*/
@@ -464,10 +480,18 @@ main(int argc, char* argv[])
                         pthread_mutex_unlock(&(squeue.flag_lock));
                     }
                 } else if(u->action == DEL_IP) {
+                    int ret_val = 0;
                     print_debug("Update Address - Del IP\n");
                     pthread_mutex_lock(&(squeue.iff_list_lock));
-                    delete_address_rtnl(sock, addr, iff_list, virt_list);
+                    ret_val = delete_address_rtnl(sock, addr, iff_list, virt_list);
                     pthread_mutex_unlock(&(squeue.iff_list_lock));
+
+                    if(ret_val > 0) {
+                        print_debug("Address, belonged to gateway, send update\n");
+                        pthread_mutex_lock(&(squeue.flag_lock));
+                        squeue.flag = 1;
+                        pthread_mutex_unlock(&(squeue.flag_lock));
+                    }
                 } else {
                     print_debug("Update Address - Unknown\n");
                 }
@@ -498,7 +522,7 @@ main(int argc, char* argv[])
                 }
 
 #ifdef EVAL
-                rtnl_route_foreach_nexthop (route, print_nexthop_cb, 0);
+//                rtnl_route_foreach_nexthop (route, print_nexthop_cb, 0);
 #endif
             } else if(u->type == UPDATE_GATEWAY) {
                 struct network_update* nupdate = 0;
@@ -518,6 +542,7 @@ main(int argc, char* argv[])
         }
 LOOP_END:
 
+#ifdef PRINT_LIST
         printf("#######################\n");
         printf("-----------------------\n");
         printf("- Physical Interfaces -\n");
@@ -530,7 +555,7 @@ LOOP_END:
         printf("-----------------------\n");
         print_interface_list(virt_list);
         printf("#######################\n");
-
+#endif
         free(qitem);
     }
 
@@ -549,21 +574,52 @@ delete_old_routes(
     List* virt_list,
     List* iff_list,
     struct nl_sock* sock,
-    int host_id)
+    int host_id,
+    struct send_queue squeue)
 {
     int idx = 0;
     int exists = 0;
     struct virtual_interface* virt = (struct virtual_interface*)0;
     struct mpdpacket* pkt = (struct mpdpacket*)0;
+    struct physical_interface* phy = (struct physical_interface*)0;
+    struct sockaddr_in* addr = (struct sockaddr_in*)0;
     int i = 0;
     Litem* phys_vlist_item = (Litem*)0;
 
     pkt = &(nupdate->pkt);
 
-    list_for_each(vitem, virt_list){
+    print_debug("\n");
+
+    addr = &(nupdate->addr);
+
+    pthread_mutex_lock(&(squeue.iff_list_lock));
+
+    phy = get_iff_network_update(addr->sin_addr.s_addr,
+                                 iff_list);
+    phy->packet_received = 1;
+    pthread_mutex_unlock(&(squeue.iff_list_lock));
+
+    if(!phy->virt_list) {
+        return SUCCESS;
+    }
+
+    list_for_each(vitem, phy->virt_list){
         virt = vitem->data;
 
         if(!virt) {
+            i++;
+            continue;
+        }
+
+        if(!virt->type_gateway) {
+            print_debug("This is a subnet, don't delete it... yet\n");
+            i++;
+            continue;
+        }
+
+        if(virt->out->super.ifidx != virt->attach->super.ifidx) {
+            print_debug("This is a subnet, don't delete it... yet, missed gateway type check\n");
+            i++;
             continue;
         }
 
@@ -582,44 +638,81 @@ delete_old_routes(
         }
 
         if(!exists) {
-            /*Delete the virtual interface*/
-
             /*Remove associated subnets*/
             {
+                print_debug("Loop through the physical interfaces\n");
                 list_for_each(pitem, iff_list){
                     struct physical_interface* phys =
                         (struct physical_interface*)pitem->data;
                     if(phys->diss) {
                         int j = 0;
+                        print_debug("Loop through the virtual interfaces for phy\n");
                         list_for_each(pvitem, phys->virt_list){
-                            if(virt->table ==
-                               ((struct virtual_interface*)pvitem->data)
-                               ->
-                               table) {
-                                phys_vlist_item = list_remove(
-                                    phys->virt_list,
-                                    j);
+                            if(virt->table == ((struct virtual_interface*)
+                                               pvitem->data)->table) {
+                                print_debug("Loop thorugh the virtual interfaces for phy\n");
+
+                                phys_vlist_item = list_remove(phys->virt_list, j);
+                                if(!phys_vlist_item) {
+                                    print_error("Remove Index out of bounds\n");
+                                    break;
+                                }
                                 struct virtual_interface* pvirt =
-                                    (struct virtual_interface*)
-                                    phys_vlist_item->data;
+                                    (struct virtual_interface*) phys_vlist_item->data;
+                                if(!pvirt) {
+                                    print_error("Interface to remove is null\n");
+                                    break;
+                                }
+                                print_debug("Deleting associated subnet\n");
+
                                 delete_address(
                                     sock,
                                     pvirt->address,
                                     pvirt->netmask,
-                                    pvirt->out->super.
-                                    ifidx);
+                                    pvirt->attach->super.ifidx);
+
                                 break;
                             }
                             j++;
                         }
+                        j = 0;
+                        /*TODO: Unbodge this. It's getting ridiculous.*/
+                        list_for_each(pvvitem, virt_list){
+                            if(virt->table == ((struct virtual_interface*)
+                                               pvvitem->data)->table) {
+                                print_debug("Loop thorugh the virtual interface list\n");
+
+                                phys_vlist_item = list_remove(virt_list, j);
+
+                                break;
+                            }
+                            j++;
+                        }
+                    } else {
+                        print_debug("Skipping interface, not diss enabled\n");
                     }
                 }
             }
 
             /*Remove virtual address exit*/
+            print_debug("Calling delete address\n");
             delete_address(sock, virt->address, virt->netmask, virt->out->super.ifidx);
+            list_remove(phy->virt_list, i);
+#ifdef EVAL
+            struct timespec monotime;
+            clock_gettime(CLOCK_REALTIME, &monotime);
+            print_eval("DR:%s:%s:%lld.%.9ld\n",
+                       host_name,
+                       ip_to_str(htonl(virt->external_ip)),
+                       (long long)monotime.tv_sec,
+                       (long)monotime.tv_nsec);
+#endif
 
             flush_table(sock, virt->table);
+
+            pthread_mutex_lock(&squeue.flag_lock);
+            squeue.flag = 1;
+            pthread_mutex_unlock(&squeue.flag_lock);
         }
         i++;
     }
@@ -658,7 +751,7 @@ handle_gateway_update(
 
     host_id = get_host_id(phy);
 
-    delete_old_routes(nupdate, virt_list, iff_list, sock, host_id);
+    delete_old_routes(nupdate, virt_list, iff_list, sock, host_id, squeue);
 
     for(idx = 0; idx < pkt->header->num; idx++) {
         struct mpdentry* entry = (pkt->entry) + idx;
@@ -666,6 +759,7 @@ handle_gateway_update(
         struct virtual_interface* v;
         uint32_t host_ip = 0;
         int16_t free_table = -1;
+        exists = 0;
 
         if (entry->depth >= MAX_DEPTH) {
             return FAILURE;
@@ -684,12 +778,14 @@ handle_gateway_update(
                 break;
             }
         }
-        pthread_mutex_unlock(&(squeue.iff_list_lock));
-        print_debug("Unlock ifflist\n");
 
         if(exists) {
-            return FAILURE;
+            print_debug("Skipping entry, already seen\n");
+            continue;
         }
+
+        pthread_mutex_unlock(&(squeue.iff_list_lock));
+        print_debug("Unlock ifflist\n");
 
         print_debug("Virt List: %p\n", virt_list);
         print_debug("Virt List: %p\n", virt_list->front);
@@ -705,10 +801,11 @@ handle_gateway_update(
                     break;
                 }
             }
+        }
 
-            if(exists) {
-                return FAILURE;
-            }
+        if(exists) {
+            print_debug("Skipping entry, already seen\n");
+            continue;
         }
 
         free_table = find_free_routing_table(sock);
@@ -742,6 +839,7 @@ handle_gateway_update(
         v->netmask = htonl(entry->netmask);
         v->depth = entry->depth + 1;
         v->external_ip = htonl(entry->ext_ip);
+
         v->type_gateway = 1;
         print_debug("Find a free routing table\n");
         v->table = free_table;
@@ -756,18 +854,28 @@ handle_gateway_update(
         print_debug("Add the new virtual interface to the phy list\n");
         item->data = (void*)v;
         print_debug("Add address to the interface\n");
-        print_debug("Virt IP: %s\n", ip_to_str(v->address));
+        print_debug("Virt IP: %s\n", ip_to_str(htonl(v->address)));
         print_debug("Physical Virt List: %p\n", phy->virt_list);
+
+        pthread_mutex_lock(&(squeue.iff_list_lock));
         if (!phy->virt_list) {
             phy->virt_list = malloc(sizeof(List));
             list_init(phy->virt_list);
             print_debug("Init Physical Virt List: %p\n", phy->virt_list);
         }
+        print_debug("add_address: List Size Pre Put %d for %s\n", list_size(
+                        phy->virt_list), phy->super.ifname);
         list_put(phy->virt_list, item);
         print_debug("Added item, interfacse (%d)\n", list_size(phy->virt_list));
+        print_debug("add_address: List Size Post Put %d for %s\n", list_size(
+                        phy->virt_list), phy->super.ifname);
+        pthread_mutex_unlock(&(squeue.iff_list_lock));
 
         print_debug("Lock ifflist\n");
         pthread_mutex_lock(&(squeue.iff_list_lock));
+
+        print_debug("Adding Interface with Label: %d\n", list_size(phy->virt_list));
+        print_debug("calling add_address()\n");
         if(add_address(sock,
                        v->address,
                        phy->super.ifidx,
@@ -801,6 +909,21 @@ handle_gateway_update(
         create_rules_for_gw(sock, virt_list, (struct interface*)v);
 
         pthread_mutex_unlock(&(squeue.iff_list_lock));
+
+        /*Flag the udpate*/
+        print_debug("Flagging to update hosts\n");
+        pthread_mutex_lock(&squeue.flag_lock);
+        squeue.flag = 1;
+        pthread_mutex_unlock(&squeue.flag_lock);
+#ifdef EVAL
+        struct timespec monotime;
+        clock_gettime(CLOCK_REALTIME, &monotime);
+        print_eval("NR:%s:%s:%lld.%.9ld\n",
+                   host_name,
+                   ip_to_str(htonl(v->external_ip)),
+                   (long long)monotime.tv_sec,
+                   (long)monotime.tv_nsec);
+#endif
     }
 
     return SUCCESS;
