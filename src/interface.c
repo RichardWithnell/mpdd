@@ -799,7 +799,7 @@ add_route(struct nl_sock* sock,
         clock_gettime(CLOCK_REALTIME, &monotime);
         print_eval("NR:%s:%s:%lld.%.9ld\n",
                    host_name,
-                   ip_to_str(p->external_ip),
+                   ip_to_str(htonl(p->external_ip)),
                    (long long)monotime.tv_sec,
                    (long)monotime.tv_nsec);
 #endif
@@ -826,7 +826,7 @@ int delete_route_from_physical(List* l, uint32_t route)
             clock_gettime(CLOCK_REALTIME, &monotime);
             print_eval("DR:%s:%s:%lld.%.9ld\n",
                        host_name,
-                       ip_to_str(iff->external_ip),
+                       ip_to_str(htonl(iff->external_ip)),
                        (long long)monotime.tv_sec,
                        (long)monotime.tv_nsec);
 #endif
