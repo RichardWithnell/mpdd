@@ -22,16 +22,24 @@
 #include <stdio.h>
 #include <time.h>
 
-#define DEBUG
+//#define PRINT_LIST
+
+//#define DEBUG
 #define ERROR
-#define VERBOSE
-#define LOG
+//#define VERBOSE
+//#define LOG
 #define EVAL
 
 #ifdef EVAL
 #define DO_EVAL 1
 #else
 #define DO_EVAL 0
+#endif
+
+#ifdef WARN
+#define DO_WARN 1
+#else
+#define DO_WARN 0
 #endif
 
 #ifdef LOG
@@ -61,6 +69,8 @@
 #ifdef DCE_NS3_FIX
 
 #include <time.h>
+
+extern char host_name[32];
 
 #define print_eval(fmt, ...) \
     do { if(DO_EVAL) {fprintf(stdout,  "EVAL:" fmt, \
@@ -125,6 +135,10 @@
 #define print_debug(fmt, ...) \
     do { if(DO_DEBUG) {fprintf(stdout, "DEBUG:%s:%d:%s(): " fmt, __FILE__, \
                                __LINE__, __func__, ## __VA_ARGS__); } } while (0)
+
+#define print_warn(fmt, ...) \
+    do { if(DO_WARN) {fprintf(stdout, "DEBUG:%s:%d:%s(): " fmt, __FILE__, \
+                              __LINE__, __func__, ## __VA_ARGS__); } } while (0)
 
 #define print_verb(fmt, ...) \
     do { if(DO_VERB) {fprintf(stdout,  "VERB :%s:%d:%s(): " fmt, __FILE__, \
