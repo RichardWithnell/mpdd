@@ -63,6 +63,7 @@ struct mpdentry
     uint32_t netmask;
     uint32_t gateway;
     uint32_t ext_ip;
+    uint32_t metric;
     uint8_t depth;
     uint8_t type;
 } __attribute__((__packed__));
@@ -94,6 +95,7 @@ struct send_queue
     pthread_mutex_t request_flag_lock;
     pthread_mutex_t iff_list_lock;
     pthread_mutex_t virt_list_lock;
+    struct nl_sock *sock;
     int socket_fd;
     fd_set wfds;
     int running;
@@ -122,6 +124,8 @@ int send_update_broadcast(List* iff_list, int sock);
 int send_request_broadcast(struct physical_interface* iff, int sock, int hflag);
 
 int create_socket(struct physical_interface* i);
+
+#define IS_LOCAL_HOST(host) (2130706433 == host ? 1 : 0)
 
 #endif
 

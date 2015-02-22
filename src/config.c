@@ -28,6 +28,7 @@
 #include "util.h"
 
 #define MAX_LINE_SIZE 512
+#define DEFAULT_HOST_ID "defhost\0"
 
 #if (((LIBCONFIG_VER_MAJOR == 1) && (LIBCONFIG_VER_MINOR >= 4)) \
     || (LIBCONFIG_VER_MAJOR > 1))
@@ -243,6 +244,7 @@ struct mpd_config* load_config(char* path)
     int update_timeout = 0;
     int count = 0;
     int i = 0;
+    int default_host = 0;
     List* ignore = (List*)0;
     List* diss = (List*)0;
 
@@ -298,9 +300,9 @@ struct mpd_config* load_config(char* path)
 
     if (config_lookup_string(conf, "host_id", &host_id) == CONFIG_FALSE) {
         print_debug("No host_id value, using default\n");
+        default_host = 1;
     }
-    //	host_id = malloc(MAX_HOST_ID_SIZE);
-    //	strcpy(host_id, "def_host\0");
+
 
     if (config_lookup_bool(conf, "application.host", &host) == CONFIG_FALSE) {
         print_debug("No host value, using default\n");
@@ -399,12 +401,17 @@ struct mpd_config* load_config(char* path)
 
     config_destroy(conf);
 
-    memcpy(mpd->host_id, host_id, 16);
+    if(!default_host){
+        memcpy(mpd->host_id, host_id, 16);
+    } else {
+        strcpy(mpd->host_id, DEFAULT_HOST_ID);
+    }
     mpd->host = host;
     mpd->ignore = ignore;
     mpd->diss = diss;
     mpd->heartbeat = heartbeat;
     mpd->update_timeout = update_timeout;
+
 
     return mpd;
 }

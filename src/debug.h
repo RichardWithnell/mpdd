@@ -72,6 +72,8 @@
 
 extern char host_name[32];
 
+extern const int PREFER_OWN_LINKS = 1;
+
 #define print_eval(fmt, ...) \
     do { if(DO_EVAL) {fprintf(stdout,  "EVAL:" fmt, \
                               ## __VA_ARGS__); } } while (0);

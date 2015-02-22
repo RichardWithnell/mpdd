@@ -42,6 +42,11 @@
 #include "queue.h"
 #include "util.h"
 
+enum {
+    EXTERNAL_ID_MODE_IP = 0x01,
+    EXTERNAL_ID_MODE_MAC = 0x02
+};
+
 struct virtual_interface;
 struct physical_interface;
 struct interface;
@@ -74,10 +79,10 @@ struct physical_interface
     uint32_t gateway;
     uint32_t broadcast;
     uint32_t external_ip;
+    uint32_t metric;
     uint8_t diss;
     uint8_t request;
     uint8_t timed_out;
-    uint8_t metric;
     uint8_t depth;
     uint8_t flags;
     uint8_t table;
@@ -96,7 +101,7 @@ struct virtual_interface
     uint32_t netmask;
     uint32_t gateway;
     uint32_t external_ip;
-    uint8_t metric;
+    uint32_t metric;
     uint8_t depth;
     uint8_t flags;
     uint8_t table;
@@ -107,6 +112,7 @@ struct virtual_interface
     struct physical_interface* attach;
     struct physical_interface* out;
     struct virtual_interface* linked;
+    List *backup_list;
 };
 
 struct physical_interface*
@@ -133,6 +139,11 @@ add_link(struct rtnl_link* link,
          List* diss_list,
          int type);
 
+uint32_t
+find_free_default_route_metric(struct nl_sock* sock,
+                               uint32_t metric,
+                               uint32_t inc);
+
 struct virtual_interface* add_virtual(char* name, uint32_t idx, uint32_t flags, List* iff_list);
 
 int delete_link(struct rtnl_link* link, List* iff, List* virt, List* ignore_list);
@@ -148,6 +159,8 @@ struct physical_interface* add_route(struct nl_sock* sock,
                                      List* iff,
                                      List* virt);
 int delete_route(struct nl_sock* sock, struct rtnl_route* route, List* iff_list, List* virt_list);
+
+int delete_default_route(struct nl_sock *sock, struct virtual_interface *virt);
 
 int delete_address(struct nl_sock* sock, uint32_t ip, uint32_t netmask, uint8_t ifidx);
 
@@ -173,7 +186,7 @@ int create_rules_for_gw(struct nl_sock* sock, List* list, struct interface* gw);
 int create_rule_for_gw(struct nl_sock* sock, struct virtual_interface* iff, int ifidx);
 int create_routing_table(struct nl_sock* sock, struct interface* iff);
 
-int add_default_route(struct nl_sock* sock, unsigned int ip, int table, int ifidx);
+int add_default_route(struct nl_sock* sock, unsigned int ip, int table, int ifidx, int metric);
 
 int clean_up_interfaces(struct nl_sock* sock, List* list);
 

@@ -45,8 +45,11 @@ void list_destroy(List* l);
 Litem* list_remove(List* l, uint32_t index);
 Litem* list_get(List* l, uint32_t index);
 
-#define list_for_each(item, list) \
-    Litem * item; for(item = list->front; item != 0; item = item->next) \
 
+#define list_for_each(item, list) \
+    for(item = list->front; item != 0; item = item->next) \
+
+#define list_for_each_reverse(item, list) \
+    for(item = list->back; item != 0; item = item->prev) \
 
 #endif

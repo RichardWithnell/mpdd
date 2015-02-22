@@ -43,8 +43,9 @@
 #include "queue.h"
 #include "util.h"
 
-#define ENABLE_HEARTBEAT 0
-#define ENABLE_LINK_TIMEOUT 0
+#define ENABLE_HEARTBEAT 1
+#define ENABLE_LINK_TIMEOUT 1
+#define BACKUP_LINK_SUPPORT 1
 
 static const int MAX_DEPTH = 255;
 static const int HEART_BEAT_TIME = 20;
@@ -71,6 +72,14 @@ int cleanup();
 
 static void* flag_heartbeat(void* data);
 static void* check_timeout(void* data);
+int delete_old_route(
+  struct nl_sock *sock,
+  struct physical_interface *phy,
+  struct virtual_interface* virt,
+  List *iff_list,
+  List *virt_list,
+  int i);
+
 
 struct send_queue squeue;
 List* iff_list = 0;
@@ -81,8 +90,13 @@ List* virt_list = 0;
  */
 static void* check_timeout(void* data)
 {
+    int i = 0;
+    Litem *item;
     struct send_queue* squeue = (struct send_queue*)data;
 
+    List *phys_list = squeue->iff_list;
+    List* virt_list = squeue->virt_list;
+    struct nl_sock *sock = squeue->sock;
     if(!squeue) {
         print_error("struct send_queue is null");
         return (void*)-1;
@@ -92,15 +106,19 @@ static void* check_timeout(void* data)
         pthread_mutex_lock(&squeue->iff_list_lock);
         /*Check links*/
         list_for_each(item, virt_list){
-            struct virtual_interface* virt = (struct virtual_interface*)item->data;
-            if(virt) {
+            struct virtual_interface* virt =
+                (struct virtual_interface*)item->data;
+            if(virt && (virt->attach == virt->out)) {
                 virt->last_update -= LINK_CHECK_TIME;
+                printf("Virt Last Update: %d\n", virt->last_update);
                 if(virt->last_update <= 0) {
-                    /*Delete virtual*/
+                    delete_old_route(sock, virt->out, virt, phys_list, virt_list, i);
                     /*Add to event list*/
-                    print_debug("Virt %s: timed out\n", ip_to_str(htonl(virt->address)));
+                    printf("Virt %s: timed out\n",
+                        ip_to_str(htonl(virt->address)));
                 }
             }
+            i++;
         }
         pthread_mutex_unlock(&squeue->iff_list_lock);
 
@@ -145,6 +163,44 @@ void sig_handler(int signum)
     sem_post(&update_barrier);
 }
 
+int is_virtual_route(struct rtnl_route *route, List * virt_list)
+{
+    struct rtnl_nexthop *nexthop = (struct rtnl_nexthop*)0;
+    struct nl_addr* gw = (struct nl_addr*)0;
+    uint32_t binary_gw = 0;
+    Litem *vitem;
+
+    if (route) {
+        nexthop = rtnl_route_nexthop_n(route, 0);
+    } else {
+        print_debug("route is NULL\n");
+        return 0;
+    }
+
+    if (nexthop) {
+        gw = rtnl_route_nh_get_gateway(nexthop);
+    } else {
+        print_debug("nexthop is NULL\n");
+        return 0;
+    }
+
+    if (gw) {
+        binary_gw = *(uint32_t*)nl_addr_get_binary_addr(gw);
+    } else {
+        print_debug("gw is NULL\n");
+        return 0;
+    }
+
+    list_for_each(vitem, virt_list){
+        struct virtual_interface *virt = (struct virtual_interface*)vitem->data;
+        if(virt->gateway == binary_gw){
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 /*
  *
  */
@@ -159,6 +215,13 @@ void print_nexthop_cb(struct rtnl_nexthop* nh, void* args)
                nl_addr2str(gw, buff, (size_t)32),
                (long long)monotime.tv_sec,
                (long)monotime.tv_nsec);
+}
+
+void print_help_message(void)
+{
+    printf("Usage: mpdd [-cC] configfile.");
+    printf("\t -c\t Minimal Config file");
+    printf("\t -C\t libconfig file");
 }
 
 /*
@@ -202,27 +265,30 @@ main(int argc, char* argv[])
             break;
         }
         switch(c) {
-        case 'c':
-            if(optarg) {
-                int pathlength = strlen(optarg);
-                print_debug("conf set: %d\n", pathlength);
-                config_path = malloc(pathlength + 1);
-                strcpy(config_path, optarg);
-            }
-            break;
-        case 'C':
-            if(optarg) {
-                minimal_config = 1;
-                int pathlength = strlen(optarg);
-                print_debug("min config set: %d\n", pathlength);
-                config_path = malloc(pathlength + 1);
-                strcpy(config_path, optarg);
-            }
-            break;
-        case '?':
-            break;
-        default:
-            return -1;
+            case 'c':
+                if(optarg) {
+                    int pathlength = strlen(optarg);
+                    print_debug("conf set: %d\n", pathlength);
+                    config_path = malloc(pathlength + 1);
+                    strcpy(config_path, optarg);
+                }
+                break;
+            case 'C':
+                if(optarg) {
+                    minimal_config = 1;
+                    int pathlength = strlen(optarg);
+                    print_debug("min config set: %d\n", pathlength);
+                    config_path = malloc(pathlength + 1);
+                    strcpy(config_path, optarg);
+                }
+                break;
+            case 'h':
+                print_help_message();
+                return 0;
+            case '?':
+                break;
+            default:
+                return -1;
         }
     }
 
@@ -363,6 +429,7 @@ main(int argc, char* argv[])
     squeue.old_virt_list = virt_list;
     squeue.running = 1;
     squeue.mon_data = &mon_data;
+    squeue.sock = sock;
 
     pthread_create(&network_thread, NULL,
                    (void*)&recv_broadcast, (void*)&squeue);
@@ -441,7 +508,6 @@ main(int argc, char* argv[])
                         if(virt->external_ip != 0) {
                             char* external_ip =
                                 ip_to_str(htonl(virt->external_ip));
-
                             print_debug(
                                 "Virtual Interface has Internet "
                                 "connection %s\n",
@@ -483,11 +549,13 @@ main(int argc, char* argv[])
                     int ret_val = 0;
                     print_debug("Update Address - Del IP\n");
                     pthread_mutex_lock(&(squeue.iff_list_lock));
-                    ret_val = delete_address_rtnl(sock, addr, iff_list, virt_list);
+                    ret_val = delete_address_rtnl(
+                                sock, addr, iff_list, virt_list);
                     pthread_mutex_unlock(&(squeue.iff_list_lock));
 
                     if(ret_val > 0) {
-                        print_debug("Address, belonged to gateway, send update\n");
+                        print_debug(
+                            "Address, belonged to gateway, send update\n");
                         pthread_mutex_lock(&(squeue.flag_lock));
                         squeue.flag = 1;
                         pthread_mutex_unlock(&(squeue.flag_lock));
@@ -499,14 +567,34 @@ main(int argc, char* argv[])
                 struct rtnl_route* route = u->update;
                 print_debug("Recieved update route type: %d\n", u->action);
                 if(u->action == ADD_RT) {
-                    print_debug("Update Route - Add RT\n");
+                    pthread_mutex_lock(&(squeue.iff_list_lock));
+                    if(is_virtual_route(route, virt_list)){
+                        pthread_mutex_unlock(&(squeue.iff_list_lock));
+
+                        print_debug("Update Route -\
+                            Add RT (Not physical, move on)\n");
+                        goto LOOP_END;
+                    } else {
+                        pthread_mutex_unlock(&(squeue.iff_list_lock));
+                        print_debug("Update Route - Add RT\n");
+                    }
+
                     pthread_mutex_lock(&(squeue.iff_list_lock));
                     add_route(sock, route, iff_list, virt_list);
                     pthread_mutex_unlock(&(squeue.iff_list_lock));
 
                     print_debug("Update Route - Completed\n");
                 } else if(u->action == DEL_RT) {
-                    print_debug("Update Route - Del RT\n");
+                    pthread_mutex_lock(&(squeue.iff_list_lock));
+                    if(is_virtual_route(route, virt_list)){
+                        pthread_mutex_unlock(&(squeue.iff_list_lock));
+                        print_debug("Update Route -\
+                             Del RT (Not physical, move on)\n");
+                        goto LOOP_END;
+                    } else {
+                        pthread_mutex_unlock(&(squeue.iff_list_lock));
+                        print_debug("Update Route - Del RT\n");
+                    }
                     pthread_mutex_lock(&(squeue.iff_list_lock));
                     delete_route(sock, route, iff_list, virt_list);
                     pthread_mutex_unlock(&(squeue.iff_list_lock));
@@ -560,11 +648,107 @@ LOOP_END:
     }
 
     //printf("\n#######################\n");
-    //print_debug("Cleaning up...\n");
+    printf("Cleaning up...\n");
 
     clean_up_interfaces(sock, virt_list);
-    //print_debug("Done\n");
+    printf("Done.\n");
     return SUCCESS;
+}
+
+
+int
+delete_old_route(
+  struct nl_sock *sock,
+  struct physical_interface *phy,
+  struct virtual_interface* virt,
+  List *iff_list,
+  List *virt_list,
+  int i)
+{
+    /*Remove associated subnets*/
+    Litem *item;
+    Litem *pitem;
+    print_debug("Loop through the physical interfaces\n");
+    list_for_each(pitem, iff_list){
+        struct physical_interface* phys = (struct physical_interface*)pitem->data;
+        if(phys->diss) {
+            int j = 0;
+            Litem *pvitem;
+            print_debug(
+                "Loop through the virtual interfaces for phy\n");
+            list_for_each(pvitem, phys->virt_list){
+                if(virt->table == ((struct virtual_interface*)
+                                   pvitem->data)->table) {
+                    print_debug("Loop thorugh the virtual interfaces for phy\n");
+
+                    item = list_remove(phys->virt_list, j);
+                    if(!item) {
+                        print_error("Remove Index out of bounds\n");
+                        break;
+                    }
+                    struct virtual_interface* pvirt =
+                      (struct virtual_interface*)
+                        item->data;
+                    if(!pvirt) {
+                        print_error("Interface to remove is null\n");
+                        break;
+                    }
+                    print_debug("Deleting associated subnet\n");
+
+                    delete_address(
+                        sock,
+                        pvirt->address,
+                        pvirt->netmask,
+                        pvirt->attach->super.ifidx);
+
+                    break;
+                }
+                j++;
+            }
+            j = 0;
+            /*TODO: Unbodge this. It's getting ridiculous.*/
+            list_for_each(pvitem, virt_list){
+                if(virt->table == ((struct virtual_interface*)
+                                   pvitem->data)->table) {
+                    print_debug("Loop thorugh the virtual \
+                         interface list\n");
+
+                    item = list_remove(virt_list, j);
+                    break;
+                }
+                j++;
+            }
+        } else {
+            print_debug("Skipping interface, not diss enabled\n");
+        }
+    }
+
+
+    /*Remove virtual address exit*/
+    print_debug("Calling delete address\n");
+    delete_address(sock,
+        virt->address,
+        virt->netmask,
+        virt->out->super.ifidx);
+    delete_default_route(sock, virt);
+    list_remove(phy->virt_list, i);
+#ifdef EVAL
+    struct timespec monotime;
+    clock_gettime(CLOCK_REALTIME, &monotime);
+    print_eval("DR:%s:%s:%lld.%.9ld\n",
+               host_name,
+               ip_to_str(htonl(virt->external_ip)),
+               (long long)monotime.tv_sec,
+               (long)monotime.tv_nsec);
+#endif
+
+    flush_table(sock, virt->table);
+
+    pthread_mutex_lock(&squeue.flag_lock);
+    squeue.flag = 1;
+    pthread_mutex_unlock(&squeue.flag_lock);
+
+    return 0;
 }
 
 /*TODO let the main loop handle link deletion from the data structures*/
@@ -584,7 +768,7 @@ delete_old_routes(
     struct physical_interface* phy = (struct physical_interface*)0;
     struct sockaddr_in* addr = (struct sockaddr_in*)0;
     int i = 0;
-    Litem* phys_vlist_item = (Litem*)0;
+    Litem *vitem;
 
     pkt = &(nupdate->pkt);
 
@@ -638,81 +822,7 @@ delete_old_routes(
         }
 
         if(!exists) {
-            /*Remove associated subnets*/
-            {
-                print_debug("Loop through the physical interfaces\n");
-                list_for_each(pitem, iff_list){
-                    struct physical_interface* phys =
-                        (struct physical_interface*)pitem->data;
-                    if(phys->diss) {
-                        int j = 0;
-                        print_debug("Loop through the virtual interfaces for phy\n");
-                        list_for_each(pvitem, phys->virt_list){
-                            if(virt->table == ((struct virtual_interface*)
-                                               pvitem->data)->table) {
-                                print_debug("Loop thorugh the virtual interfaces for phy\n");
-
-                                phys_vlist_item = list_remove(phys->virt_list, j);
-                                if(!phys_vlist_item) {
-                                    print_error("Remove Index out of bounds\n");
-                                    break;
-                                }
-                                struct virtual_interface* pvirt =
-                                    (struct virtual_interface*) phys_vlist_item->data;
-                                if(!pvirt) {
-                                    print_error("Interface to remove is null\n");
-                                    break;
-                                }
-                                print_debug("Deleting associated subnet\n");
-
-                                delete_address(
-                                    sock,
-                                    pvirt->address,
-                                    pvirt->netmask,
-                                    pvirt->attach->super.ifidx);
-
-                                break;
-                            }
-                            j++;
-                        }
-                        j = 0;
-                        /*TODO: Unbodge this. It's getting ridiculous.*/
-                        list_for_each(pvvitem, virt_list){
-                            if(virt->table == ((struct virtual_interface*)
-                                               pvvitem->data)->table) {
-                                print_debug("Loop thorugh the virtual interface list\n");
-
-                                phys_vlist_item = list_remove(virt_list, j);
-
-                                break;
-                            }
-                            j++;
-                        }
-                    } else {
-                        print_debug("Skipping interface, not diss enabled\n");
-                    }
-                }
-            }
-
-            /*Remove virtual address exit*/
-            print_debug("Calling delete address\n");
-            delete_address(sock, virt->address, virt->netmask, virt->out->super.ifidx);
-            list_remove(phy->virt_list, i);
-#ifdef EVAL
-            struct timespec monotime;
-            clock_gettime(CLOCK_REALTIME, &monotime);
-            print_eval("DR:%s:%s:%lld.%.9ld\n",
-                       host_name,
-                       ip_to_str(htonl(virt->external_ip)),
-                       (long long)monotime.tv_sec,
-                       (long)monotime.tv_nsec);
-#endif
-
-            flush_table(sock, virt->table);
-
-            pthread_mutex_lock(&squeue.flag_lock);
-            squeue.flag = 1;
-            pthread_mutex_unlock(&squeue.flag_lock);
+            delete_old_route(sock, phy, virt, virt_list, iff_list, i);
         }
         i++;
     }
@@ -755,11 +865,14 @@ handle_gateway_update(
 
     for(idx = 0; idx < pkt->header->num; idx++) {
         struct mpdentry* entry = (pkt->entry) + idx;
-        Litem* item;
+        Litem *item;
+        Litem *pitem;
+        Litem *vitem;
         struct virtual_interface* v;
         uint32_t host_ip = 0;
         int16_t free_table = -1;
         exists = 0;
+
 
         if (entry->depth >= MAX_DEPTH) {
             return FAILURE;
@@ -796,9 +909,19 @@ handle_gateway_update(
                 if(temp_virt && temp_virt->address == host_ip) {
                     print_debug(
                         "Virtual address already exists, resetting timout\n");
-                    temp_virt->last_update = LINK_CHECK_TIME;
+                    if(temp_virt->external_ip == htonl(entry->ext_ip)
+                       && phy == temp_virt->attach
+                       && phy == temp_virt->out)
+                    {
+                        /*Don't reset the timeout if it was a bogus IP update
+                        from a different host*/
+                        temp_virt->last_update = LINK_TIMEOUT;
+                    }
                     exists = 1;
                     break;
+                }
+                if(temp_virt->external_ip == htonl(entry->ext_ip)){
+                    //Add link as backup
                 }
             }
         }
@@ -838,8 +961,9 @@ handle_gateway_update(
         v->address = host_ip;
         v->netmask = htonl(entry->netmask);
         v->depth = entry->depth + 1;
+        v->metric = entry->metric;
         v->external_ip = htonl(entry->ext_ip);
-
+        v->last_update = LINK_TIMEOUT;
         v->type_gateway = 1;
         print_debug("Find a free routing table\n");
         v->table = free_table;
@@ -874,7 +998,8 @@ handle_gateway_update(
         print_debug("Lock ifflist\n");
         pthread_mutex_lock(&(squeue.iff_list_lock));
 
-        print_debug("Adding Interface with Label: %d\n", list_size(phy->virt_list));
+        print_debug("Adding Interface with Label: %d\n",
+            list_size(phy->virt_list));
         print_debug("calling add_address()\n");
         if(add_address(sock,
                        v->address,
@@ -897,7 +1022,9 @@ handle_gateway_update(
 
         pthread_mutex_lock(&(squeue.iff_list_lock));
 
-        if(add_default_route(sock, entry->address, v->table, phy->super.ifidx)) {
+        if(add_default_route(sock, entry->address,
+          v->table, phy->super.ifidx, entry->metric))
+        {
             pthread_mutex_unlock(&(squeue.iff_list_lock));
 
             fprintf(stderr, "Failed to add route, for network update\n");
@@ -908,6 +1035,58 @@ handle_gateway_update(
         create_routing_table(sock, (struct interface*)v);
         create_rules_for_gw(sock, virt_list, (struct interface*)v);
 
+        /*
+        Terrible code, much like the rest of it.
+        Deletion of this route is covered by
+        deleting the address from the interface.
+        */
+        /*
+        Debian currently seems to accept some default routes,
+        with the same metric, breaking this loop.
+        Assuming it is due to an incorrect scope... or proto type
+        {
+
+            int find_metric = v->metric;
+            int attempts = 0;
+            int res = 0;
+            while(-2 == (res = add_default_route(
+              sock,
+              entry->address,
+              RT_TABLE_MAIN,
+              phy->super.ifidx, find_metric)))
+            {
+                find_metric += (phy->super.ifidx);
+                //Prevent all interface routes iterating
+                //over the same metric, if collisions occur. Hack. Eugh.
+                if(attempts > 100){
+                    break;
+                }
+            }
+            if(res < 0){
+                pthread_mutex_unlock(&(squeue.iff_list_lock));
+                return FAILURE;
+            }
+        }
+        */
+        {
+            int res = 0;
+            uint32_t find_metric = find_free_default_route_metric(
+                                    sock,
+                                    v->metric,
+                                    phy->super.ifidx);
+            print_verb("Found free metric: %d\n", find_metric);
+
+            res = add_default_route(sock,
+                                    entry->address,
+                                    RT_TABLE_MAIN,
+                                    phy->super.ifidx,
+                                    find_metric);
+            if(res < 0){
+                print_error("Failed to add default route: %d\n", res);
+                pthread_mutex_unlock(&(squeue.iff_list_lock));
+                return FAILURE;
+            }
+        }
         pthread_mutex_unlock(&(squeue.iff_list_lock));
 
         /*Flag the udpate*/
@@ -918,9 +1097,10 @@ handle_gateway_update(
 #ifdef EVAL
         struct timespec monotime;
         clock_gettime(CLOCK_REALTIME, &monotime);
-        print_eval("NR:%s:%s:%lld.%.9ld\n",
+        print_eval("NR:%s:%s:%s:%lld.%.9ld\n",
                    host_name,
                    ip_to_str(htonl(v->external_ip)),
+                   v->out->super.ifname,
                    (long long)monotime.tv_sec,
                    (long)monotime.tv_nsec);
 #endif

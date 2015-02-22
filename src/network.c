@@ -24,6 +24,17 @@
  * TODO: Speed this up with libev.
  */
 
+char host_name[32];
+
+void *
+send_request_thread(struct physical_interface *phy, int sock)
+{
+    if(1){
+        send_request_broadcast(phy, sock, MPD_HDR_REQUEST);
+    }
+    return 0;
+}
+
 /*
  *
  */
@@ -153,7 +164,6 @@ void* recv_broadcast(struct send_queue* squeue)
         FD_SET(sock, &rfds);
         FD_SET(sock, &wfds);
         FD_SET(sock, &efds);
-        print_debug("Select()\n");
 
         //ret = select(maxfd, &rfds, &wfds, &efds, &tv);
         ret = select(maxfd, &rfds, &wfds, &efds, &tv);
@@ -170,8 +180,9 @@ void* recv_broadcast(struct send_queue* squeue)
                 }
 
                 /*Ignore broadcasts from localhost*/
-                if (2130706433 == saddr.sin_addr.s_addr
-                    || 2130706433 == htonl(saddr.sin_addr.s_addr)) {
+                if(IS_LOCAL_HOST(saddr.sin_addr.s_addr) ||
+                        IS_LOCAL_HOST(htonl(saddr.sin_addr.s_addr)))
+                {
                     print_debug("Broadcast came from localhost, ignore\n");
                     continue;
                 }
@@ -334,7 +345,7 @@ void* recv_broadcast(struct send_queue* squeue)
                                 (long)monotime.tv_nsec);
                             #endif
                             send_request_broadcast(phy, sock, MPD_HDR_REQUEST);
-                            phy->packet_received = 1;
+                            //phy->packet_received = 1;
                         }
 
                         free(qitem);
@@ -381,6 +392,8 @@ void* recv_broadcast(struct send_queue* squeue)
     free(buff);
     return (void*)0;
 }
+
+
 
 /*
  *
@@ -728,6 +741,10 @@ create_update_packet(struct physical_interface* iff, struct mpdpacket** packet)
     for (i = 0; i < size; i++) {
         struct virtual_interface* virt = (list_get(iff->virt_list, i))->data;
         print_debug("Adding virtual interface %d to packet\n", i);
+        if(virt->attach == iff && virt->out == iff){
+            printf("This link originated from this host, don't send back\n");
+            continue;
+        }
         if (virt->gateway && virt->address && virt->netmask) {
             struct mpdentry* e = 0;
             print_debug("Entry Buffer Size: %d\n", buffer_size);
@@ -743,8 +760,9 @@ create_update_packet(struct physical_interface* iff, struct mpdpacket** packet)
             print_debug("Entry (%p) - j(%d) pkt(%p)\n", e, j, pkt->entry);
             e->address = htonl(virt->address);
             e->netmask = htonl(virt->netmask);
-            //e->gateway = htonl(virt->attach->address);
-            e->gateway = 0;
+            e->gateway = htonl(virt->attach->address);
+            e->metric = virt->metric;
+            //e->gateway = 0;
             e->ext_ip = htonl(virt->external_ip);
             //e->mp_mode = get_net_mp_const(iff->ifflags);
             //e->mp_mode= 0;

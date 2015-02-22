@@ -36,6 +36,7 @@ struct virtual_interface* create_alias(struct nl_sock* sock,
                                        List* virt_list);
 
 char host_name[32];
+const int PREFER_OWN_LINKS = 1;
 
 /*
  *
@@ -47,7 +48,7 @@ get_iff_network_update(uint32_t sender_ip, List* iff_list)
         print_debug("sender IP NULL\n");
         return (struct physical_interface*)FAILURE;
     }
-
+    Litem *item;
     list_for_each(item, iff_list){
         struct physical_interface* iff = item->data;
 
@@ -78,6 +79,7 @@ uint32_t get_host_id(struct physical_interface* phy)
  */
 int in_list(char* name, List* diss_list)
 {
+    Litem *item;
     list_for_each(item, diss_list){
         char* data = item->data;
 
@@ -102,7 +104,7 @@ int mark_diss_iff(char* name, List* diss_list)
         print_debug("Diss_list is null");
         return 0;
     }
-
+    Litem *item;
     list_for_each(item, diss_list){
         char* data = item->data;
 
@@ -128,6 +130,7 @@ int mark_diss_iff(char* name, List* diss_list)
  */
 struct interface* get_interface_by_idx(int ifidx, List* l)
 {
+    Litem *item;
     list_for_each(item, l){
         struct interface* iff = item->data;
 
@@ -348,6 +351,7 @@ add_addr(
     print_debug("Address Index: %d\n",  ifidx);
 
     if (local) {
+        Litem *pitem;
         list_for_each(pitem, iff){
             temp_phys = (struct physical_interface*)pitem->data;
             print_debug("\tComparing %s and ",
@@ -363,6 +367,7 @@ add_addr(
                 return (struct interface*)0;
             }
         }
+        Litem *vitem;
         list_for_each(vitem, virt) {
             temp_virt = (struct virtual_interface*)vitem->data;
 
@@ -417,7 +422,10 @@ add_addr(
         }
 
         if (p->virt_list) {
+            Litem *item;
+
             print_debug("Virtual List: %d\n", list_size(p->virt_list));
+
             list_for_each(item, p->virt_list){
                 struct virtual_interface* iff = item->data;
 
@@ -539,7 +547,11 @@ add_addr(
  * The address has been deleted by the system, delete from the appropriate data structures
  */
 int
-delete_address_rtnl(struct nl_sock* sock, struct rtnl_addr* addr, List* iff_list, List* virt_list)
+delete_address_rtnl(
+    struct nl_sock* sock,
+    struct rtnl_addr* addr,
+    List* iff_list,
+    List* virt_list)
 {
     uint32_t vaddr = (uint32_t)0;
     struct nl_addr* local = (struct nl_addr*)0;
@@ -564,7 +576,8 @@ delete_address_rtnl(struct nl_sock* sock, struct rtnl_addr* addr, List* iff_list
     print_debug("Deleting: %s from %s\n", ip_to_str(htonl(vaddr)), label);
 
     if (strstr(label, ":") != NULL) {
-        Litem* temp_item = (Litem*)0;
+        Litem *vitem;
+        Litem *temp_item = (Litem*)0;
         print_debug("Deleting virtual address\n");
         int i = 0;
 
@@ -575,6 +588,7 @@ delete_address_rtnl(struct nl_sock* sock, struct rtnl_addr* addr, List* iff_list
                 (struct virtual_interface*)vitem->data;
 
             if (virt && (vaddr == virt->address)) {
+                Litem *pvitem;
                 int j = 0;
                 list_for_each(pvitem, virt->attach->virt_list){
                     struct virtual_interface* phys_virt =
@@ -596,6 +610,7 @@ delete_address_rtnl(struct nl_sock* sock, struct rtnl_addr* addr, List* iff_list
             i++;
         }
     } else {
+        Litem *pitem;
         print_debug("Deleting physical address\n");
         list_for_each(pitem, iff_list){
             struct physical_interface* phys =
@@ -611,7 +626,7 @@ delete_address_rtnl(struct nl_sock* sock, struct rtnl_addr* addr, List* iff_list
                     flush_table(sock, phys->super.ifidx);
                     ret_val = 1;
                 }
-
+                Litem * item;
                 if(phys->virt_list) {
                     list_for_each(item, phys->virt_list){
                         int j = 0;
@@ -716,6 +731,8 @@ add_virt_for_diss(struct nl_sock* sock,
         return 0;
     }
 
+    Litem *item;
+
     list_for_each(item, iff_list){
         struct physical_interface* p = (struct physical_interface*)item->data;
 
@@ -777,6 +794,10 @@ add_route(struct nl_sock* sock,
         return (struct physical_interface*)0;
     }
     p->gateway = binary_gw;
+
+    p->metric = rtnl_route_get_priority(route);
+    printf("Set link metric to: %u\n", p->metric);
+
     print_debug("Set Physical Gateway (%s) to %s\n",
                 p->super.ifname,
                 ip_to_str(htonl(p->gateway)));
@@ -792,14 +813,16 @@ add_route(struct nl_sock* sock,
     create_routing_table(sock, (struct interface*)p);
     print_debug("get_external_ip\n");
     p->external_ip = get_ext_ip(p->address);
+
     if(p->external_ip) {
         print_debug("External IP: %s\n", ip_to_str(htonl(p->external_ip)));
 #ifdef EVAL
         struct timespec monotime;
         clock_gettime(CLOCK_REALTIME, &monotime);
-        print_eval("NR:%s:%s:%lld.%.9ld\n",
+        print_eval("NR:%s:%s:%s:%lld.%.9ld\n",
                    host_name,
                    ip_to_str(htonl(p->external_ip)),
+                   p->super.ifname,
                    (long long)monotime.tv_sec,
                    (long)monotime.tv_nsec);
 #endif
@@ -815,6 +838,8 @@ add_route(struct nl_sock* sock,
  */
 int delete_route_from_physical(List* l, uint32_t route)
 {
+    Litem *item;
+
     list_for_each(item, l){
         struct physical_interface* iff = (struct physical_interface*)item->data;
 
@@ -887,6 +912,8 @@ delete_rule(struct nl_sock* sock, uint32_t ip, uint32_t mask)
 int
 delete_rules_by_gw(struct nl_sock* sock, List* list, uint32_t gw)
 {
+    Litem *item;
+
     list_for_each(item, list){
         struct virtual_interface* iff = item->data;
 
@@ -1012,7 +1039,7 @@ int flush_table(struct nl_sock* sock, int table)
     print_debug("Flush table (%d)\n", table);
 
     if (table <= 0) {
-        printf("Bad table number\nn");
+        printf("Bad table number: %d\n", table);
         return -1;
     }
 
@@ -1103,15 +1130,140 @@ delete_virtual_address(struct nl_sock* sock, unsigned int ip, int ifidx)
     return 0;
 }
 
+struct NexthopMatch {
+    struct nl_sock *sock;
+    List *list;
+    struct virtual_interface *virt;
+    char flag;
+};
+
+void delete_nexthop_virt_cb(struct rtnl_nexthop* nh, void* args)
+{
+    struct NexthopMatch *nhm = (struct NexthopMatch*)args;
+    struct virtual_interface* iff = (struct virtual_interface*)nhm->virt;
+    if(iff && (iff->out == iff->attach)){
+        struct nl_addr* gw = rtnl_route_nh_get_gateway(nh);
+        uint32_t bgw = *(uint32_t*)nl_addr_get_binary_addr(gw);
+        if(bgw == iff->gateway){
+            nhm->flag = 1;
+        }
+    }
+}
+
+void delete_nexthop_list_cb(struct rtnl_nexthop* nh, void* args)
+{
+    struct NexthopMatch *nhm = (struct NexthopMatch*)args;
+    List *list = nhm->list;
+    Litem *item;
+    list_for_each(item, list) {
+        struct virtual_interface* iff = (struct virtual_interface*)item->data;
+        if(iff && (iff->out == iff->attach)){
+            struct nl_addr* gw = rtnl_route_nh_get_gateway(nh);
+            uint32_t bgw = *(uint32_t*)nl_addr_get_binary_addr(gw);
+            if(bgw == iff->gateway){
+                nhm->flag = 1;
+            }
+        }
+    }
+}
+
+/*
+* TODO change this to use a function pointer to reduce duplication
+*/
+void
+delete_virtual_rt_virt_cb(struct nl_object* cb, void* arg)
+{
+    if (cb) {
+        printf("Delete Virtual RT CB\n");
+        struct NexthopMatch *nhm = (struct NexthopMatch *)arg;
+        struct rtnl_route* rt = (struct rtnl_route*)cb;
+        nhm->flag = 0;
+        rtnl_route_foreach_nexthop (rt, delete_nexthop_virt_cb, nhm);
+        if(nhm->flag){
+            rtnl_route_delete(nhm->sock, rt, 0);
+        }
+    }
+}
+
+/*
+*
+*/
+void
+delete_virtual_rt_list_cb(struct nl_object* cb, void* arg)
+{
+    if (cb) {
+        printf("Delete Virtual RT CB\n");
+        struct NexthopMatch *nhm = (struct NexthopMatch *)arg;
+        struct rtnl_route* rt = (struct rtnl_route*)cb;
+        nhm->flag = 0;
+        rtnl_route_foreach_nexthop (rt, delete_nexthop_list_cb, nhm);
+        if(nhm->flag){
+            rtnl_route_delete(nhm->sock, rt, 0);
+        }
+    }
+}
+
+int
+delete_default_route(struct nl_sock *sock, struct virtual_interface *virt)
+{
+    /*Delete Default routes*/
+    struct rtnl_route* filter = 0;
+    struct nl_cache* cache = 0;
+    struct nl_addr *dst;
+    char n = '0';
+    struct NexthopMatch nhm;
+
+    rtnl_route_alloc_cache(sock, AF_INET, 0, &cache);
+    filter = rtnl_route_alloc();
+    dst = nl_addr_build(AF_INET, &n, 0);
+    rtnl_route_set_dst(filter, dst);
+    rtnl_route_set_family(filter, AF_INET);
+    rtnl_route_set_table(filter, RT_TABLE_MAIN);
+    nhm.sock = sock;
+    nhm.virt = virt;
+    nhm.flag = 0;
+    nl_cache_foreach_filter(cache, (struct nl_object*)filter, delete_virtual_rt_virt_cb, &nhm);
+    return 0;
+}
+
+int
+delete_default_routes(struct nl_sock *sock, List* list)
+{
+    /*Delete Default routes*/
+    struct rtnl_route* filter = 0;
+    struct nl_cache* cache = 0;
+    struct nl_addr *dst;
+    char n = '0';
+    struct NexthopMatch nhm;
+
+    rtnl_route_alloc_cache(sock, AF_INET, 0, &cache);
+    filter = rtnl_route_alloc();
+    dst = nl_addr_build(AF_INET, &n, 0);
+    rtnl_route_set_dst(filter, dst);
+    rtnl_route_set_family(filter, AF_INET);
+    rtnl_route_set_table(filter, RT_TABLE_MAIN);
+    nhm.sock = sock;
+    nhm.list = list;
+    nhm.flag = 0;
+    nl_cache_foreach_filter(cache, (struct nl_object*)filter, delete_virtual_rt_list_cb, &nhm);
+    return 0;
+}
+
 /*
  *
  */
 int
 clean_up_interfaces(struct nl_sock* sock, List* list)
 {
+    Litem *item;
+
+    print_debug("Cleaning up created interfaces...\n");
+
+    delete_default_routes(sock, list);
+
     print_debug("Cleaning up created rules\n");
-    list_for_each(item, list){
-        struct virtual_interface* iff = item->data;
+    list_for_each(item, list) {
+        struct virtual_interface* iff = (struct virtual_interface*)item->data;
 
         print_debug("delete rules with address: \n");
         //print_ip(iff->address);
@@ -1120,6 +1272,10 @@ clean_up_interfaces(struct nl_sock* sock, List* list)
         delete_rule(sock, iff->address, iff->netmask);
         delete_virtual_address(sock, iff->address, iff->attach->super.ifidx);
     }
+
+
+    print_debug("Done.\n");
+
     return 0;
 }
 
@@ -1165,12 +1321,14 @@ create_alias(struct nl_sock* sock,
         v->out = ((struct virtual_interface*)p)->out;
         v->table = ((struct virtual_interface*)p)->table;
         v->external_ip = ((struct virtual_interface*)p)->external_ip;
+        v->metric = ((struct virtual_interface*)p)->metric;
         print_debug("Assigning Ext IP: %s from virt\n",
                     ip_to_str(((struct virtual_interface*)p)->external_ip));
     } else {
         v->gateway = ((struct physical_interface*)p)->gateway;
         v->out = (struct physical_interface*)p;
         v->external_ip = ((struct physical_interface*)p)->external_ip;
+        v->metric = ((struct physical_interface*)p)->metric;
         print_debug("Assigning Ext IP: %s from phys\n",
                     ip_to_str(((struct physical_interface*)p)->external_ip));
     }
@@ -1213,6 +1371,7 @@ create_aliases_for_gw(
     List* virt_list,
     struct interface* p)
 {
+    Litem *item;
     print_debug("\n");
     list_for_each(item, phys_list){
         struct physical_interface* iff =
@@ -1310,7 +1469,7 @@ create_rule_for_gw(
         if (!(src = nl_addr_build(AF_INET, &ip, 4))) {
             perror(
                 "create_rules_for_gw() - \
-                Failed building nl address for routing rule"                                                                               );
+                Failed building nl address for routing rule");
             return FAILURE;
         }
 
@@ -1323,7 +1482,7 @@ create_rule_for_gw(
         if (rtnl_rule_set_src(rule, src)) {
             perror(
                 "create_rules_for_gw() - \
-                Failed setting src address for rule"                                                                               );
+                Failed setting src address for rule");
             return FAILURE;
         }
 
@@ -1352,6 +1511,7 @@ create_rule_for_gw(
 int
 create_rules_for_gw(struct nl_sock* sock, List* list, struct interface* gw)
 {
+    Litem *item;
     print_debug("\n");
     list_for_each(item, list){
         struct virtual_interface* iff = (struct virtual_interface*)item->data;
@@ -1377,7 +1537,12 @@ create_rules_for_gw(struct nl_sock* sock, List* list, struct interface* gw)
  *
  */
 int
-add_default_route(struct nl_sock* sock, unsigned int ip, int table, int ifidx)
+add_default_route(
+  struct nl_sock* sock,
+  unsigned int ip,
+  int table,
+  int ifidx,
+  int metric)
 {
     struct nl_addr* dst = 0;
     struct nl_addr* gw = 0;
@@ -1412,6 +1577,7 @@ add_default_route(struct nl_sock* sock, unsigned int ip, int table, int ifidx)
 
     rtnl_route_set_scope(route, RT_SCOPE_UNIVERSE);
     rtnl_route_set_table(route, table);
+    rtnl_route_set_priority(route, metric);
 
     if (rtnl_route_set_family(route, AF_INET)) {
         print_debug("failed to set family\n");
@@ -1441,9 +1607,15 @@ add_default_route(struct nl_sock* sock, unsigned int ip, int table, int ifidx)
         nl_perror(ret, 0);
     }
 
-    print_debug("Create Routing Table: %d (%d)\n", table, ret);
+    if (ret == NLE_EXIST) {
+        return -2;
+    } else if (ret < 0) {
+        return -1;
+    } else {
+        print_debug("Create Routing Table: %d (%d)\n", table, ret);
 
-    return 0;
+        return 0;
+    }
 }
 
 /*
@@ -1518,6 +1690,7 @@ add_address(struct nl_sock* sock, unsigned int ip, int ifidx, int label)
 void
 print_interface_list(List* l)
 {
+    Litem *item;
     print_debug("Print Interface List\n");
     list_for_each(item, l){
         struct interface* iff = item->data;
@@ -1569,6 +1742,7 @@ print_interface(struct interface* i)
         printf("\tDissem: %d\n", iff->diss);
         if (iff->virt_list && iff->virt_list->size > 0) {
             printf("\tVirtual Interfaces: (%d)\n", iff->virt_list->size);
+            Litem *item;
             list_for_each(item, iff->virt_list){
                 struct virtual_interface* virt =
                     (struct virtual_interface*)item->data;
@@ -1675,6 +1849,7 @@ find_free_subnet(struct nl_sock* sock)
     return 0;
 }
 
+
 /*
  *
  */
@@ -1683,6 +1858,67 @@ struct find_rt
     uint32_t table;
     int flag;
 };
+
+/*
+ *
+ */
+void
+free_rt_metric_cb(struct nl_object* cb, void* arg)
+{
+    if (cb) {
+        struct rtnl_route* filter = (struct rtnl_route*) cb;
+        struct find_rt* frt = (struct find_rt*) arg;
+        uint32_t prio = rtnl_route_get_priority(filter);
+        print_verb("Priority: %u Desired: %u\n", prio, frt->table);
+        if(PREFER_OWN_LINKS){
+            if (frt->table <= prio) {
+                frt->flag = 1;
+            }
+        } else {
+            if (frt->table == prio) {
+                frt->flag = 1;
+            }
+        }
+    }
+}
+
+uint32_t
+find_free_default_route_metric(
+  struct nl_sock* sock,
+  uint32_t metric,
+  uint32_t inc)
+{
+    int i = 0;
+    struct rtnl_route* filter = 0;
+    struct nl_cache* cache = 0;
+    struct nl_addr *dst;
+    struct find_rt frt;
+    char n = '0';
+
+    rtnl_route_alloc_cache(sock, AF_INET, 0, &cache);
+    filter = rtnl_route_alloc();
+    dst = nl_addr_build(AF_INET, &n, 0);
+    rtnl_route_set_dst(filter, dst);
+    rtnl_route_set_family(filter, AF_INET);
+    rtnl_route_set_table(filter, RT_TABLE_MAIN);
+
+    while (i < 512) {
+        frt.table = metric;
+        frt.flag = 0;
+        nl_cache_foreach_filter(
+            cache,
+            (struct nl_object*)filter,
+            free_rt_metric_cb, &frt);
+
+        if (!frt.flag) {
+            return metric;
+        }
+
+        metric += inc;
+        i++;
+    }
+    return 0;
+}
 
 /*
  *

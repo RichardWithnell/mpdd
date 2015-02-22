@@ -23,7 +23,11 @@
 
 #define DEBUG_VERB 0
 
-static void cache_update(struct nl_cache* cache, struct nl_object* obj, int action, void* arg);
+static void cache_update(
+    struct nl_cache* cache,
+    struct nl_object* obj,
+    int action,
+    void* arg);
 
 /*
  *

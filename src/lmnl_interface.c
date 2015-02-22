@@ -100,7 +100,9 @@ int validate_rt_attr_cb(const struct nlattr* attr, void* data)
     return MNL_CB_OK;
 }
 
-struct mnl_link* mnl_link_from_msg(struct ifinfomsg* ifm, const struct nlmsghdr* nlh)
+struct mnl_link* mnl_link_from_msg(
+    struct ifinfomsg* ifm,
+    const struct nlmsghdr* nlh)
 {
     struct mnl_link* link = (struct mnl_link*)0;
     struct nlattr* tb[IFLA_MAX + 1] = {};
@@ -120,7 +122,9 @@ struct mnl_link* mnl_link_from_msg(struct ifinfomsg* ifm, const struct nlmsghdr*
     return link;
 }
 
-struct mnl_addr* mnl_addr_from_msg(struct ifaddrmsg* ifa, const struct nlmsghdr* nlh)
+struct mnl_addr* mnl_addr_from_msg(
+    struct ifaddrmsg* ifa,
+    const struct nlmsghdr* nlh)
 {
     struct mnl_addr* addr = (struct mnl_addr*)0;
     struct nlattr* tb[IFLA_MAX + 1] = {};
@@ -160,7 +164,9 @@ struct mnl_addr* mnl_addr_from_msg(struct ifaddrmsg* ifa, const struct nlmsghdr*
     return addr;
 }
 
-struct mnl_route* mnl_route_from_msg(struct rtmsg* rm, const struct nlmsghdr* nlh)
+struct mnl_route* mnl_route_from_msg(
+    struct rtmsg* rm,
+    const struct nlmsghdr* nlh)
 {
     struct mnl_route* rt = (struct mnl_route*)0;
     struct nlattr* tb[RTA_MAX + 1] = {};
@@ -213,8 +219,10 @@ struct rtnl_addr* mnl_to_rtnl_addr(struct mnl_addr* a)
 
     addr = rtnl_addr_alloc();
 
-    struct nl_addr* mb = nl_addr_build(a->family, (void*)&(a->broadcast), sizeof(a->broadcast));
-    struct nl_addr* ml = nl_addr_build(a->family, (void*)&(a->local), sizeof(a->local));
+    struct nl_addr* mb =
+        nl_addr_build(a->family, (void*)&(a->broadcast), sizeof(a->broadcast));
+    struct nl_addr* ml =
+        nl_addr_build(a->family, (void*)&(a->local), sizeof(a->local));
 
     rtnl_addr_set_local(addr, ml);
     rtnl_addr_set_broadcast(addr, mb);
