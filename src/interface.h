@@ -80,6 +80,7 @@ struct physical_interface
     uint32_t broadcast;
     uint32_t external_ip;
     uint32_t metric;
+    uint8_t mac_address[6];
     uint8_t diss;
     uint8_t request;
     uint8_t timed_out;

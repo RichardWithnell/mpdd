@@ -236,6 +236,9 @@ add_link(
     int ifidx = -1;
     char* ifname = 0;
     int flags = 0;
+    struct nl_addr *mac;
+    uint8_t mac_address[6];
+    void *macaddr;
 
     ifname = rtnl_link_get_name(link);
 
@@ -257,6 +260,16 @@ add_link(
     /*Check if we already have this interface*/
     ifidx = rtnl_link_get_ifindex(link);
     flags = rtnl_link_get_flags(link);
+    mac = rtnl_link_get_addr(link);
+    if(!mac){
+        return (struct interface*)0;
+    }
+    macaddr = nl_addr_get_binary_addr (mac);
+    if(!macaddr){
+        return (struct interface*)0;
+    }
+
+    memcpy(mac_address, macaddr, 6);
 
     if (type == PHYSICAL_TYPE) {
         int diss = 0;
