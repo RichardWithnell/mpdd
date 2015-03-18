@@ -48,6 +48,7 @@ uint32_t get_ext_ip(uint32_t ip);
 char* trimwhitespace(char* str);
 List* read_config(char* path);
 char* ip_to_str(int ip);
+char* mac_to_str(uint8_t *mac);
 void print_ip(int ip);
 int multipath_enabled(void);
 uint8_t get_net_mp_const(int flags);

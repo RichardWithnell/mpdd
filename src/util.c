@@ -161,13 +161,34 @@ char* ip_to_str(int ip)
 
     memset(ipstr, 0, 32);
     sprintf(ipstr,
-            "%d.%d.%d.%d",
+            "%u.%u.%u.%u",
             (ip >> 24) & 0xFF,
             (ip >> 16) & 0xFF,
             (ip >> 8) & 0xFF,
             ip & 0xFF);
     return ipstr;
 }
+
+/**
+ *
+ */
+char* mac_to_str(uint8_t *mac)
+{
+    static char macstr[32] = "";
+    memset(macstr, 0, 32);
+
+    sprintf(macstr,
+            "%02x:%02x:%02x:%02x:%02x:%02x",
+            mac[0],
+            mac[1],
+            mac[2],
+            mac[3],
+            mac[4],
+            mac[5]);
+
+    return macstr;
+}
+
 
 /**
  *
