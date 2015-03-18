@@ -25,6 +25,11 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 
+#include <libmnl/libmnl.h>
+#include <linux/if.h>
+#include <linux/if_link.h>
+#include <linux/rtnetlink.h>
+
 #include <netlink/addr.h>
 #include <netlink/cache.h>
 #include <netlink/data.h>
@@ -172,7 +177,7 @@ void flush_table_cb(struct nl_object* cb, void* arg);
 
 int delete_virtual_by_gw(List* list, uint32_t gw);
 
-int delete_rule(struct nl_sock* sock, uint32_t ip, uint32_t mask);
+int delete_rule(struct nl_sock* sock, uint32_t ip, uint32_t mask, uint32_t table);
 
 void delete_rule_cb(struct nl_object* cb, void* arg);
 
@@ -184,12 +189,15 @@ int create_aliases_for_gw(struct nl_sock* sock,
                           List* virt_list,
                           struct interface* p);
 int create_rules_for_gw(struct nl_sock* sock, List* list, struct interface* gw);
-int create_rule_for_gw(struct nl_sock* sock, struct virtual_interface* iff, int ifidx);
+int create_rule_for_gw(struct nl_sock* sock, struct interface* iff, int ifidx);
 int create_routing_table(struct nl_sock* sock, struct interface* iff);
+int create_routing_table_subnet_route(struct nl_sock* sock, struct interface* iff, uint32_t idx, uint32_t table);
+int create_routing_table_default_route(struct nl_sock* sock, struct interface* iff, uint32_t idx, uint32_t table);
+
 
 int add_default_route(struct nl_sock* sock, unsigned int ip, int table, int ifidx, int metric);
 
-int clean_up_interfaces(struct nl_sock* sock, List* list);
+int clean_up_interfaces(struct nl_sock* sock, List* virt_list, List* phys_list);
 
 void print_interface(struct interface* iff);
 void print_interface_list(List* l);
