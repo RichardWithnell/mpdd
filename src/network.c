@@ -154,8 +154,8 @@ void* recv_broadcast(struct send_queue* squeue)
     while (squeue->running) {
         struct mpdpacket* pkt = 0;
 
-        tv.tv_sec = 0;
-        tv.tv_usec = 500;
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
 
         FD_ZERO(&rfds);
         FD_ZERO(&wfds);
@@ -372,10 +372,11 @@ void* recv_broadcast(struct send_queue* squeue)
                 }
 
                 pthread_mutex_unlock(&(squeue->flag_lock));
-                select(0, 0, 0, 0, &tv);
 #ifdef DCE_NS3_FIX
-                print_debug("NS3FixSleep(1)\n");
+                print_verb("NS3FixSleep(1)\n");
                 usleep(1000);
+#else
+                select(0, 0, 0, 0, &tv);
 #endif
             } else if (FD_ISSET(sock, &efds)) {
                 print_debug("Error FDS Set\n");

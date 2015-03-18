@@ -22,12 +22,12 @@
 #include <stdio.h>
 #include <time.h>
 
-//#define PRINT_LIST
+#define PRINT_LIST
 
-//#define DEBUG
+#define DEBUG
 #define ERROR
 //#define VERBOSE
-//#define LOG
+#define LOG
 #define EVAL
 
 #ifdef EVAL
@@ -72,7 +72,7 @@
 
 extern char host_name[32];
 
-extern const int PREFER_OWN_LINKS = 1;
+extern const int PREFER_OWN_LINKS;
 
 #define print_eval(fmt, ...) \
     do { if(DO_EVAL) {fprintf(stdout,  "EVAL:" fmt, \

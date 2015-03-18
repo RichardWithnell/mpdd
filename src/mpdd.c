@@ -650,7 +650,7 @@ LOOP_END:
     //printf("\n#######################\n");
     printf("Cleaning up...\n");
 
-    clean_up_interfaces(sock, virt_list);
+    clean_up_interfaces(sock, virt_list, iff_list);
     printf("Done.\n");
     return SUCCESS;
 }
@@ -968,7 +968,7 @@ handle_gateway_update(
         print_debug("Find a free routing table\n");
         v->table = free_table;
         print_debug("\tAssigned - %u\n", v->table);
-        create_rule_for_gw(sock, v, v->table);
+        create_rule_for_gw(sock, (struct interface*)v, v->table);
         item = (Litem*)malloc(sizeof(Litem));
         if (!item) {
             errno = ENOMEM;
@@ -1022,6 +1022,8 @@ handle_gateway_update(
 
         pthread_mutex_lock(&(squeue.iff_list_lock));
 
+        /*
+        This step is currently redundant
         if(add_default_route(sock, entry->address,
           v->table, phy->super.ifidx, entry->metric))
         {
@@ -1030,44 +1032,15 @@ handle_gateway_update(
             fprintf(stderr, "Failed to add route, for network update\n");
             return FAILURE;
         }
+        */
 
         create_aliases_for_gw(sock, iff_list, virt_list, (struct interface*)v);
-        create_routing_table(sock, (struct interface*)v);
         create_rules_for_gw(sock, virt_list, (struct interface*)v);
+        print_debug("Create the routing table for virtual gateway\n");
+        //create_routing_table(sock, (struct interface*)v);
+        create_routing_table_default_route(sock, (struct interface*)v, v->attach->super.ifidx, v->table);
+        create_routing_table_subnet_route(sock, (struct interface*)v, v->attach->super.ifidx, v->table);
 
-        /*
-        Terrible code, much like the rest of it.
-        Deletion of this route is covered by
-        deleting the address from the interface.
-        */
-        /*
-        Debian currently seems to accept some default routes,
-        with the same metric, breaking this loop.
-        Assuming it is due to an incorrect scope... or proto type
-        {
-
-            int find_metric = v->metric;
-            int attempts = 0;
-            int res = 0;
-            while(-2 == (res = add_default_route(
-              sock,
-              entry->address,
-              RT_TABLE_MAIN,
-              phy->super.ifidx, find_metric)))
-            {
-                find_metric += (phy->super.ifidx);
-                //Prevent all interface routes iterating
-                //over the same metric, if collisions occur. Hack. Eugh.
-                if(attempts > 100){
-                    break;
-                }
-            }
-            if(res < 0){
-                pthread_mutex_unlock(&(squeue.iff_list_lock));
-                return FAILURE;
-            }
-        }
-        */
         {
             int res = 0;
             uint32_t find_metric = find_free_default_route_metric(
