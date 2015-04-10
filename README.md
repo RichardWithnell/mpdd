@@ -39,5 +39,8 @@ See [Example configuration](example/mpdd.conf)
 
 The simple config is currently recommended for use with NS3.
 
+NB.
+When load balancing is enabled, route metric 0 in RT_TABLE_MAIN should not be allocated in the network manager. 
+
 Contributing
 ------------
