@@ -57,6 +57,11 @@ struct physical_interface;
 struct interface;
 
 enum {
+    LB_DELETE_NEXTHOP = 0x01,
+    LB_ADD_NEXTHOP = 0x02
+};
+
+enum {
     PHYSICAL_TYPE = 0x01,
     VIRTUAL_TYPE = 0x02
 };
@@ -190,7 +195,7 @@ int create_aliases_for_gw(struct nl_sock* sock,
                           struct interface* p);
 int create_rules_for_gw(struct nl_sock* sock, List* list, struct interface* gw);
 int create_rule_for_gw(struct nl_sock* sock, struct interface* iff, int ifidx);
-int create_routing_table(struct nl_sock* sock, struct interface* iff);
+int create_routing_table(struct nl_sock* sock, struct interface* iff, List *virt_list);
 int create_routing_table_subnet_route(struct nl_sock* sock, struct interface* iff, uint32_t idx, uint32_t table);
 int create_routing_table_default_route(struct nl_sock* sock, struct interface* iff, uint32_t idx, uint32_t table);
 
@@ -209,6 +214,9 @@ int add_virt_for_diss(struct nl_sock* sock,
                       struct physical_interface* phy,
                       List* iff_list,
                       List* virt_list);
+
+int add_load_balance_route_from_rtnl(struct nl_sock *sock, struct rtnl_route *route);
+int delete_load_balance_route_from_rtnl(struct nl_sock *sock, struct rtnl_route *route);
 
 #endif
 

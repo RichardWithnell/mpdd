@@ -38,6 +38,7 @@ struct virtual_interface* create_alias(struct nl_sock* sock,
 char host_name[32];
 const int PREFER_OWN_LINKS = 1;
 
+
 /*
  *
  */
@@ -62,6 +63,7 @@ get_iff_network_update(uint32_t sender_ip, List* iff_list)
     return (struct physical_interface*)0;
 }
 
+
 /*
  *
  */
@@ -73,6 +75,7 @@ uint32_t get_host_id(struct physical_interface* phy)
         return 0;
     }
 }
+
 
 /*
  *
@@ -89,6 +92,7 @@ int in_list(char* name, List* diss_list)
     }
     return 0;
 }
+
 
 /*
  *
@@ -125,6 +129,7 @@ int mark_diss_iff(char* name, List* diss_list)
     return 0;
 }
 
+
 /*
  *
  */
@@ -140,6 +145,7 @@ struct interface* get_interface_by_idx(int ifidx, List* l)
     }
     return (struct interface*)0;
 }
+
 
 /*
  *
@@ -180,6 +186,7 @@ add_virtual(char* name, uint32_t idx, uint32_t flags, List* iff_list)
     list_put(iff_list, item);
     return virt;
 }
+
 
 /*
  *
@@ -228,6 +235,7 @@ add_physical(
     list_put(iff_list, item);
     return phys;
 }
+
 
 /*
  *
@@ -316,6 +324,7 @@ add_link(
     }
 }
 
+
 /*
  *
  */
@@ -335,6 +344,7 @@ delete_link(struct rtnl_link* link, List* iff, List* virt, List* ignore_list)
     }
     return SUCCESS;
 }
+
 
 /*
  *
@@ -497,6 +507,9 @@ add_addr(
             create_rule_for_gw(sock, (struct interface*)v, v->out->super.ifidx);
         }
 
+        create_routing_table_subnet_route(sock,
+            (struct interface*)v, v->attach->super.ifidx, v->out->super.ifidx);
+
         if(!v->external_ip) {
             v->external_ip = v->out->external_ip;
         }
@@ -564,6 +577,7 @@ add_addr(
         return (struct interface*)p;
     }
 }
+
 
 /*
  * The address has been deleted by the system, delete from the appropriate data structures
@@ -685,6 +699,9 @@ delete_address_rtnl(
     return ret_val;
 }
 
+/*
+*
+*/
 int
 delete_address(
     struct nl_sock* sock,
@@ -743,6 +760,10 @@ delete_address(
     return SUCCESS;
 }
 
+
+/*
+*
+*/
 int
 add_virt_for_diss(struct nl_sock* sock,
                   struct physical_interface* phy,
@@ -770,6 +791,7 @@ add_virt_for_diss(struct nl_sock* sock,
 
     return 0;
 }
+
 
 /*
  *
@@ -833,7 +855,7 @@ add_route(struct nl_sock* sock,
     create_rules_for_gw(sock, virt_list, (struct interface*)p);
     /*create routing table*/
     print_debug("create routing table\n");
-    create_routing_table(sock, (struct interface*)p);
+    create_routing_table(sock, (struct interface*)p, virt_list);
     print_debug("get_external_ip\n");
     p->external_ip = get_ext_ip(p->address);
 
@@ -855,6 +877,7 @@ add_route(struct nl_sock* sock,
     print_debug(" Done\n");
     return p;
 }
+
 
 /*
  *
@@ -883,6 +906,7 @@ int delete_route_from_physical(List* l, uint32_t route)
     return 0;
 }
 
+
 /*
  *
  */
@@ -901,6 +925,7 @@ void delete_rule_cb(struct nl_object* cb, void* arg)
         print_debug("Error deleting rule: %d\n", ret);
     }
 }
+
 
 /*
  *
@@ -932,6 +957,7 @@ delete_rule(struct nl_sock* sock, uint32_t ip, uint32_t mask, uint32_t table)
     return 0;
 }
 
+
 /*
  *
  */
@@ -952,6 +978,7 @@ delete_rules_by_gw(struct nl_sock* sock, List* list, uint32_t gw)
 
     return 0;
 }
+
 
 /*
  *
@@ -1008,6 +1035,7 @@ int delete_virtual_by_gw(List* list, uint32_t gw)
     return 0;
 }
 
+
 /*
  *
  */
@@ -1037,6 +1065,7 @@ int delete_virtual_by_phy_addr(List* list, uint32_t addr)
     return 0;
 }
 
+
 /*
  *
  */
@@ -1053,6 +1082,7 @@ void flush_table_cb(struct nl_object* cb, void* arg)
         print_debug("Delte route failed\n");
     }
 }
+
 
 /*
  *
@@ -1092,6 +1122,7 @@ int flush_table(struct nl_sock* sock, int table)
     return 0;
 }
 
+
 /*
  *
  */
@@ -1121,6 +1152,7 @@ delete_route(
 
     return SUCCESS;
 }
+
 
 /*
  *
@@ -1163,6 +1195,10 @@ struct NexthopMatch {
     char flag;
 };
 
+
+/*
+*
+*/
 void delete_nexthop_virt_cb(struct rtnl_nexthop* nh, void* args)
 {
     struct NexthopMatch *nhm = (struct NexthopMatch*)args;
@@ -1176,6 +1212,10 @@ void delete_nexthop_virt_cb(struct rtnl_nexthop* nh, void* args)
     }
 }
 
+
+/*
+*
+*/
 void delete_nexthop_list_cb(struct rtnl_nexthop* nh, void* args)
 {
     struct NexthopMatch *nhm = (struct NexthopMatch*)args;
@@ -1211,6 +1251,7 @@ delete_virtual_rt_virt_cb(struct nl_object* cb, void* arg)
     }
 }
 
+
 /*
 *
 */
@@ -1229,6 +1270,223 @@ delete_virtual_rt_list_cb(struct nl_object* cb, void* arg)
     }
 }
 
+
+/*
+*
+*/
+struct rtnl_route *
+create_load_balance_route(struct nl_sock *sock)
+{
+    struct nl_addr* dst = 0;
+    struct rtnl_route* route = 0;
+    struct rtnl_nexthop* nexthop = 0;
+    char n = '0';
+
+    if (!(route = rtnl_route_alloc())) {
+        perror("add_default_route() - route alloc failed");
+        return (struct rtnl_route *)0;
+    }
+
+    if (!(nexthop = rtnl_route_nh_alloc())) {
+        perror("add_default_route() - nexthop alloc failed");
+        return (struct rtnl_route *)0;
+    }
+
+    dst = nl_addr_build(AF_INET, &n, 0);
+
+    print_debug("Build address - dst\n");
+
+    if (!dst) {
+        print_debug("dst null");
+        return (struct rtnl_route *)0;
+    }
+
+    rtnl_route_set_scope(route, RT_SCOPE_UNIVERSE);
+    rtnl_route_set_table(route, RT_TABLE_MAIN);
+    rtnl_route_set_priority(route, 0);
+
+    if (rtnl_route_set_family(route, AF_INET)) {
+        print_debug("failed to set family\n");
+    }
+
+    if (rtnl_route_set_dst(route, dst)) {
+        print_debug("Failed to set destination\n");
+    }
+
+    return route;
+
+}
+
+
+/*
+*
+*/
+void
+__get_load_balance_route_cb(struct nl_object *obj, void * args)
+{
+    struct rtnl_route *route;
+    struct rtnl_route *rt;
+
+    rt = (struct rtnl_route*)obj;
+
+    if(rtnl_route_get_priority(rt) == 0){
+        route = (struct rtnl_route*)nl_object_clone(obj);
+        args = (void*)route;
+    }
+}
+
+
+/*
+*
+*/
+int
+__modify_load_balance_route(struct nl_sock *sock, struct rtnl_nexthop *nexthop, int flag)
+{
+    struct nl_cache *route_cache = (struct nl_cache*)0;
+    struct rtnl_route *lb_route;
+
+    if(rtnl_route_alloc_cache(sock, AF_INET, 0, &route_cache)){
+        return FAILURE;
+    }
+
+    nl_cache_foreach(route_cache, __get_load_balance_route_cb, &lb_route);
+
+    if(!lb_route){
+        lb_route = create_load_balance_route(sock);
+    } else {
+        rtnl_route_delete(sock, lb_route, 0);
+    }
+
+    if(flag == LB_ADD_NEXTHOP){
+        rtnl_route_add_nexthop(lb_route, nexthop);
+    } else if(flag == LB_DELETE_NEXTHOP) {
+        rtnl_route_remove_nexthop(lb_route, nexthop);
+    } else {
+        return FAILURE;
+    }
+
+    if(!rtnl_route_add(sock, lb_route, 0)){
+        return SUCCESS;
+    } else {
+        return FAILURE;
+    }
+}
+
+
+/*
+*
+*/
+struct rtnl_nexthop *
+__load_balance_create_nexthop(uint32_t gateway, uint32_t ifidx, uint32_t weight)
+{
+    struct rtnl_nexthop *nh;
+    struct nl_addr *gw;
+
+    nh = rtnl_route_nh_alloc();
+
+    gw = nl_addr_build(AF_INET, &gateway, sizeof(uint32_t));
+
+    if (!gw) {
+        print_debug("gw null");
+        return (struct rtnl_nexthop *)0;
+    }
+
+    rtnl_route_nh_set_ifindex(nh, ifidx);
+    rtnl_route_nh_set_gateway(nh, gw);
+    rtnl_route_nh_set_weight(nh, weight);
+    return nh;
+}
+
+
+/*
+*
+*/
+int
+add_load_balance_route(struct nl_sock *sock, uint32_t gateway, uint32_t ifidx, uint32_t weight)
+{
+    struct rtnl_nexthop *nh;
+    nh = __load_balance_create_nexthop(gateway, ifidx, weight);
+    if(nh){
+        return __modify_load_balance_route(sock, nh, LB_ADD_NEXTHOP);
+    } else {
+        return FAILURE;
+    }
+}
+
+
+/*
+*
+*/
+int
+delete_load_balance_route(struct nl_sock *sock, uint32_t gateway, uint32_t ifidx, uint32_t weight)
+{
+    struct rtnl_nexthop *nh;
+    nh = __load_balance_create_nexthop(gateway, ifidx, weight);
+    if(nh){
+        return __modify_load_balance_route(sock, nh, LB_DELETE_NEXTHOP);
+    } else {
+        return FAILURE;
+    }
+}
+
+
+/*
+*
+*/
+int
+add_load_balance_route_from_rtnl(struct nl_sock *sock, struct rtnl_route *route)
+{
+    if(!route){
+        return FAILURE;
+    }
+
+    if(rtnl_route_get_nnexthops(route) == 1){
+        struct rtnl_nexthop *nh = rtnl_route_nexthop_n (route, 0);
+        struct nl_addr *gw = rtnl_route_nh_get_gateway(nh);
+        uint32_t ifidx = rtnl_route_nh_get_ifindex(nh);
+        uint32_t gateway = *(uint32_t*)nl_addr_get_binary_addr(gw);
+        #ifdef POLICY_MODULE
+        uint32_t weight = lookup_weight(gateway, ifidx);
+        #else
+        uint32_t weight = 1;
+        #endif
+        return add_load_balance_route(sock, gateway, ifidx, weight);
+    } else {
+        return FAILURE;
+    }
+}
+
+
+/*
+*
+*/
+int
+delete_load_balance_route_from_rtnl(struct nl_sock *sock, struct rtnl_route *route)
+{
+    if(!route){
+        return FAILURE;
+    }
+
+    if(rtnl_route_get_nnexthops(route) == 1){
+        struct rtnl_nexthop *nh = rtnl_route_nexthop_n (route,  0);
+        struct nl_addr *gw = rtnl_route_nh_get_gateway(nh);
+        uint32_t ifidx = rtnl_route_nh_get_ifindex(nh);
+        uint32_t gateway = *(uint32_t*)nl_addr_get_binary_addr(gw);
+        #ifdef POLICY_MODULE
+        uint32_t weight = lookup_weight(gateway, ifidx);
+        #else
+        uint32_t weight = 1;
+        #endif
+        return delete_load_balance_route(sock, gateway, ifidx, weight);
+    } else {
+        return FAILURE;
+    }
+}
+
+
+/*
+*
+*/
 int
 delete_default_route(struct nl_sock *sock, struct virtual_interface *virt)
 {
@@ -1252,6 +1510,10 @@ delete_default_route(struct nl_sock *sock, struct virtual_interface *virt)
     return 0;
 }
 
+
+/*
+*
+*/
 int
 delete_default_routes(struct nl_sock *sock, List* list)
 {
@@ -1274,6 +1536,7 @@ delete_default_routes(struct nl_sock *sock, List* list)
     nl_cache_foreach_filter(cache, (struct nl_object*)filter, delete_virtual_rt_list_cb, &nhm);
     return 0;
 }
+
 
 /*
  *
@@ -1316,6 +1579,10 @@ clean_up_interfaces(struct nl_sock* sock, List* virt_list, List* phys_list)
     return 0;
 }
 
+
+/*
+*
+*/
 struct virtual_interface*
 create_alias(struct nl_sock* sock,
              struct physical_interface* iff,
@@ -1398,6 +1665,7 @@ create_alias(struct nl_sock* sock,
     return v;
 }
 
+
 /*
  *
  */
@@ -1426,6 +1694,9 @@ create_aliases_for_gw(
 }
 
 
+/*
+*
+*/
 int create_routing_table_default_route(
   struct nl_sock* sock,
   struct interface* iff,
@@ -1481,6 +1752,10 @@ int create_routing_table_default_route(
     return SUCCESS;
 }
 
+
+/*
+*
+*/
 int create_routing_table_subnet_route(
   struct nl_sock* sock,
   struct interface* iff,
@@ -1539,7 +1814,7 @@ int create_routing_table_subnet_route(
 /*
  *
  */
-int create_routing_table(struct nl_sock* sock, struct interface* iff)
+int create_routing_table(struct nl_sock* sock, struct interface* iff, List *virt_list)
 {
     print_debug("Flushing old routing table: %d\n",
                 iff->ifidx);
@@ -1553,31 +1828,6 @@ int create_routing_table(struct nl_sock* sock, struct interface* iff)
         if(create_routing_table_subnet_route(sock, iff, iff->ifidx, iff->ifidx)){
             print_debug("Failed adding subnet route to table: %d\n", iff->ifidx);
             return FAILURE;
-        }
-        if(iff->type == PHYSICAL_TYPE){
-            List *l = ((struct physical_interface*)iff)->virt_list;
-            if(l){
-                Litem *item;
-                list_for_each(item, l){
-                    struct virtual_interface* virt = item->data;
-                    if(virt){
-                        print_debug("Adding alias attach route to table %d %d", virt->attach->super.ifidx, iff->ifidx);
-
-                        create_routing_table_subnet_route(
-                            sock,
-                            (struct interface*)virt,
-                            virt->attach->super.ifidx,
-                            iff->ifidx);
-                        print_debug("Adding alias out route to table %d %d", virt->attach->super.ifidx, iff->ifidx);
-
-                        create_routing_table_subnet_route(
-                            sock,
-                            (struct interface*)virt,
-                            virt->out->super.ifidx,
-                            iff->ifidx);
-                    }
-                }
-            }
         }
     } else {
         if(create_routing_table_default_route(sock, iff, iff->ifidx, iff->ifidx)){
@@ -1593,6 +1843,7 @@ int create_routing_table(struct nl_sock* sock, struct interface* iff)
 
     return SUCCESS;
 }
+
 
 /*
  *
@@ -1664,60 +1915,8 @@ create_rule_for_gw(
 
         return FAILURE;
     }
-/*
-    uint32_t ip = 0;
-    int ret = 0;
-	struct nlmsghdr *nlh;
-	struct rtmsg *rtm;
-    struct mnl_socket* nl;
-    uint32_t seq, portid;
-    char buf[MNL_SOCKET_BUFFER_SIZE];
-
-    ip = iff->address & iff->netmask;
-
-    printf("IP_RULE: %d %d %d\n", ip, iff->address, iff->netmask);
-
-    nlh = mnl_nlmsg_put_header(buf);
-	nlh->nlmsg_type	= RTM_NEWRULE;
-	nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL;
-	nlh->nlmsg_seq = seq = time(NULL);
-
-	rtm = mnl_nlmsg_put_extra_header(nlh, sizeof(struct rtmsg));
-
-    rtm->rtm_family = AF_INET;
-	rtm->rtm_protocol = RTPROT_BOOT;
-	rtm->rtm_scope = RT_SCOPE_UNIVERSE;
-	rtm->rtm_table = 0;
-	rtm->rtm_type = RTN_UNSPEC;
-	rtm->rtm_flags = 0;
-
-	rtm->rtm_type = RTN_UNICAST;
-
-    rtm->rtm_src_len = 24;
-    mnl_attr_put_u32(nlh, FRA_SRC, ip);
-    rtm->rtm_table = ifidx;
-    rtm->rtm_family = AF_INET;
-
-    nl = mnl_socket_open(NETLINK_ROUTE);
-    if (nl == NULL) {
-        perror("mnl_socket_open");
-    }
-
-    if (mnl_socket_bind(nl, 0, MNL_SOCKET_AUTOPID) < 0) {
-		perror("mnl_socket_bind");
-        return FAILURE;
-	}
-	portid = mnl_socket_get_portid(nl);
-
-	if (mnl_socket_sendto(nl, nlh, nlh->nlmsg_len) < 0) {
-		perror("mnl_socket_send");
-        return FAILURE;
-	}
-
-    mnl_socket_close(nl);
-    return SUCCESS;
-*/
 }
+
 
 /*
  *
@@ -1746,6 +1945,7 @@ create_rules_for_gw(struct nl_sock* sock, List* list, struct interface* gw)
     }
     return SUCCESS;
 }
+
 
 /*
  *
@@ -1832,6 +2032,7 @@ add_default_route(
     }
 }
 
+
 /*
  *
  */
@@ -1898,6 +2099,7 @@ add_address(struct nl_sock* sock, unsigned int ip, int ifidx, int label)
     return 0;
 }
 
+
 /*
  *
  */
@@ -1915,6 +2117,7 @@ print_interface_list(List* l)
         printf("\n");
     }
 }
+
 
 /*
  *
@@ -1977,6 +2180,7 @@ print_interface(struct interface* i)
     }
 }
 
+
 /*
  *
  */
@@ -1985,6 +2189,7 @@ struct find_subnet
     uint32_t address;
     int flag;
 };
+
 
 /*
  *
@@ -2005,6 +2210,10 @@ free_subnet_cb(struct nl_object* cb, void* arg)
     }
 }
 
+
+/*
+*
+*/
 uint32_t rand_interval(unsigned int min, unsigned int max)
 {
     long int r;
@@ -2022,10 +2231,11 @@ uint32_t rand_interval(unsigned int min, unsigned int max)
     return (uint32_t)(min + (r / buckets));
 }
 
-/*
-   If there are no free subnets this is screwed
-   Fine for nested gateways but will cause trouble with some topologies
- */
+
+/**
+*   If there are no free subnets this is screwed
+*   Fine for nested gateways but will cause trouble with some topologies
+*/
 uint32_t
 find_free_subnet(struct nl_sock* sock)
 {
@@ -2074,6 +2284,7 @@ struct find_rt
     int flag;
 };
 
+
 /*
  *
  */
@@ -2097,6 +2308,10 @@ free_rt_metric_cb(struct nl_object* cb, void* arg)
     }
 }
 
+
+/*
+*
+*/
 uint32_t
 find_free_default_route_metric(
   struct nl_sock* sock,
@@ -2135,6 +2350,7 @@ find_free_default_route_metric(
     return 0;
 }
 
+
 /*
  *
  */
@@ -2146,6 +2362,7 @@ free_rt_cb(struct nl_object* cb, void* arg)
         frt->flag = 1;
     }
 }
+
 
 /*
  *
@@ -2179,6 +2396,7 @@ int16_t find_free_routing_table(struct nl_sock* sock)
     return FAILURE;
 }
 
+
 /*
  *
  */
@@ -2186,6 +2404,7 @@ void destroy_interface(struct interface* iff)
 {
     free(iff);
 }
+
 
 /*
  *
@@ -2195,6 +2414,7 @@ void destroy_virt_interface(struct virtual_interface* virt)
     free(virt);
 }
 
+
 /*
  *
  */
@@ -2202,6 +2422,7 @@ void destroy_phys_interface(struct physical_interface* phys)
 {
     free(phys);
 }
+
 
 /*
  *
@@ -2236,6 +2457,7 @@ struct physical_interface* init_phys(void)
 
     return p;
 }
+
 
 /*
  *

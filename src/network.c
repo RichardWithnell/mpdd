@@ -332,9 +332,7 @@ void* recv_broadcast(struct send_queue* squeue)
                         /*We don't need to send a request, already received packet*/
                         if(phy->packet_received) {
                             continue;
-                        }
-
-                        if(!phy->packet_received) {
+                        } else {
                             #ifdef EVAL
                             struct timespec monotime;
                             clock_gettime(CLOCK_REALTIME, &monotime);
@@ -344,6 +342,7 @@ void* recv_broadcast(struct send_queue* squeue)
                                 (long long)monotime.tv_sec,
                                 (long)monotime.tv_nsec);
                             #endif
+                            //usleep((int)(rand() / ((double)RAND_MAX + 1.00) * (1000000 + 1)));
                             send_request_broadcast(phy, sock, MPD_HDR_REQUEST);
                             //phy->packet_received = 1;
                         }

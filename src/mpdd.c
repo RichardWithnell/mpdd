@@ -14,7 +14,7 @@
 
     Author: Richard Withnell
     github.com/richardwithnell
- */
+*/
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -46,6 +46,7 @@
 #define ENABLE_HEARTBEAT 1
 #define ENABLE_LINK_TIMEOUT 1
 #define BACKUP_LINK_SUPPORT 1
+#define ENABLE_LOAD_BALANCE 0
 
 static const int MAX_DEPTH = 255;
 static const int HEART_BEAT_TIME = 20;
@@ -53,6 +54,9 @@ static const int LINK_CHECK_TIME = 2;
 static const int LINK_TIMEOUT = 100;
 
 static const char DEF_CONFIG_FILE[32] = "/etc/mpd/mpdd_simple.conf";
+
+static const char LOAD_BALANCING = ENABLE_LOAD_BALANCE;
+
 
 static int running = 1;
 
@@ -84,6 +88,12 @@ int delete_old_route(
 struct send_queue squeue;
 List* iff_list = 0;
 List* virt_list = 0;
+
+static int lookup_weight(uint32_t ip)
+{
+    return 1;
+}
+
 
 /*
  *
@@ -128,6 +138,7 @@ static void* check_timeout(void* data)
     return (void*)0;
 }
 
+
 /*
  *
  */
@@ -152,6 +163,7 @@ static void* flag_heartbeat(void* data)
     return (void*)0;
 }
 
+
 /*
  *
  */
@@ -163,6 +175,10 @@ void sig_handler(int signum)
     sem_post(&update_barrier);
 }
 
+
+/*
+*
+*/
 int is_virtual_route(struct rtnl_route *route, List * virt_list)
 {
     struct rtnl_nexthop *nexthop = (struct rtnl_nexthop*)0;
@@ -201,6 +217,7 @@ int is_virtual_route(struct rtnl_route *route, List * virt_list)
     return 0;
 }
 
+
 /*
  *
  */
@@ -217,12 +234,17 @@ void print_nexthop_cb(struct rtnl_nexthop* nh, void* args)
                (long)monotime.tv_nsec);
 }
 
+
+/*
+*
+*/
 void print_help_message(void)
 {
     printf("Usage: mpdd [-cC] configfile.");
     printf("\t -c\t Minimal Config file");
     printf("\t -C\t libconfig file");
 }
+
 
 /*
  *
@@ -568,6 +590,11 @@ main(int argc, char* argv[])
                 print_debug("Recieved update route type: %d\n", u->action);
                 if(u->action == ADD_RT) {
                     pthread_mutex_lock(&(squeue.iff_list_lock));
+                    if(LOAD_BALANCING){
+                        if(rtnl_route_get_priority(route) == 0){
+                            add_load_balance_route_from_rtnl(sock, route);
+                        }
+                    }
                     if(is_virtual_route(route, virt_list)){
                         pthread_mutex_unlock(&(squeue.iff_list_lock));
 
@@ -586,6 +613,11 @@ main(int argc, char* argv[])
                     print_debug("Update Route - Completed\n");
                 } else if(u->action == DEL_RT) {
                     pthread_mutex_lock(&(squeue.iff_list_lock));
+                    if(LOAD_BALANCING){
+                        if(rtnl_route_get_priority(route) == 0){
+                            delete_load_balance_route_from_rtnl(sock, route);
+                        }
+                    }
                     if(is_virtual_route(route, virt_list)){
                         pthread_mutex_unlock(&(squeue.iff_list_lock));
                         print_debug("Update Route -\
@@ -656,6 +688,9 @@ LOOP_END:
 }
 
 
+/*
+*
+*/
 int
 delete_old_route(
   struct nl_sock *sock,
@@ -751,7 +786,10 @@ delete_old_route(
     return 0;
 }
 
-/*TODO let the main loop handle link deletion from the data structures*/
+
+/*
+* TODO let the main loop handle link deletion from the data structures
+*/
 int
 delete_old_routes(
     struct network_update* nupdate,
@@ -829,6 +867,7 @@ delete_old_routes(
 
     return SUCCESS;
 }
+
 
 /*
  *
@@ -915,6 +954,7 @@ handle_gateway_update(
                     {
                         /*Don't reset the timeout if it was a bogus IP update
                         from a different host*/
+                        temp_virt->last_update = 0;
                         temp_virt->last_update = LINK_TIMEOUT;
                     }
                     exists = 1;

@@ -49,8 +49,12 @@ enum {
 //#define NET_MP_MODE_OFF 0x00
 //#define NET_MP_MODE_ON 0x01
 
-#define SUCCESS 0x00
-#define FAILURE -0x01
+enum {
+    SUCCESS = 0x00,
+    FAILURE = -0x01
+};
+
+
 
 enum {
     ENTRY_TYPE_DEL = 0x00,
