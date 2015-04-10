@@ -46,7 +46,7 @@
 #define ENABLE_HEARTBEAT 1
 #define ENABLE_LINK_TIMEOUT 1
 #define BACKUP_LINK_SUPPORT 1
-#define ENABLE_LOAD_BALANCE 0
+#define ENABLE_LOAD_BALANCE 1
 
 static const int MAX_DEPTH = 255;
 static const int HEART_BEAT_TIME = 20;
@@ -591,9 +591,14 @@ main(int argc, char* argv[])
                 if(u->action == ADD_RT) {
                     pthread_mutex_lock(&(squeue.iff_list_lock));
                     if(LOAD_BALANCING){
-                        if(rtnl_route_get_priority(route) == 0){
+                        if(rtnl_route_get_priority(route) != 0){
+                            print_debug("Update Route - Add loadbalance\n");
                             add_load_balance_route_from_rtnl(sock, route);
+                        } else {
+                            print_debug("Update Route - Priority not 0\n");
                         }
+                    } else {
+                        print_debug("Update Route - Add loadbalance\n");
                     }
                     if(is_virtual_route(route, virt_list)){
                         pthread_mutex_unlock(&(squeue.iff_list_lock));
@@ -614,9 +619,14 @@ main(int argc, char* argv[])
                 } else if(u->action == DEL_RT) {
                     pthread_mutex_lock(&(squeue.iff_list_lock));
                     if(LOAD_BALANCING){
-                        if(rtnl_route_get_priority(route) == 0){
+                        if(rtnl_route_get_priority(route) != 0){
+                            print_debug("Update Route - Delete loadbalance\n");
                             delete_load_balance_route_from_rtnl(sock, route);
+                        } else {
+                            print_debug("Update Route - Priority not 0\n");
                         }
+                    } else {
+                        print_debug("Update Route - Add loadbalance\n");
                     }
                     if(is_virtual_route(route, virt_list)){
                         pthread_mutex_unlock(&(squeue.iff_list_lock));

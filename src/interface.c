@@ -1317,6 +1317,10 @@ create_load_balance_route(struct nl_sock *sock)
 
 }
 
+struct find_lb_route_data {
+    struct rtnl_route *lb_route;
+    char found;
+};
 
 /*
 *
@@ -1326,12 +1330,17 @@ __get_load_balance_route_cb(struct nl_object *obj, void * args)
 {
     struct rtnl_route *route;
     struct rtnl_route *rt;
+    struct find_lb_route_data *lbd;
 
     rt = (struct rtnl_route*)obj;
+    lbd = (struct find_lb_route_data*)args;
 
+    print_debug("Load Balance: Check route: %d\n", rtnl_route_get_priority(rt));
     if(rtnl_route_get_priority(rt) == 0){
+        print_debug("Found Load Balance Route\n");
         route = (struct rtnl_route*)nl_object_clone(obj);
-        args = (void*)route;
+        lbd->lb_route = route;
+        lbd->found = 1;
     }
 }
 
@@ -1343,31 +1352,54 @@ int
 __modify_load_balance_route(struct nl_sock *sock, struct rtnl_nexthop *nexthop, int flag)
 {
     struct nl_cache *route_cache = (struct nl_cache*)0;
-    struct rtnl_route *lb_route;
+    struct rtnl_route *lb_route = (struct rtnl_route *)0;
+    struct rtnl_route *filter = (struct rtnl_route *)0;
+    struct nl_addr *dst;
+    char n = '0';
+    struct find_lb_route_data find_lb;
+
+    find_lb.found = 0;
+    find_lb.lb_route = (struct rtnl_route *)0;
+
+    filter = rtnl_route_alloc();
+    dst = nl_addr_build(AF_INET, &n, 0);
+    rtnl_route_set_dst(filter, dst);
+    rtnl_route_set_family(filter, AF_INET);
+    rtnl_route_set_table(filter, RT_TABLE_MAIN);
 
     if(rtnl_route_alloc_cache(sock, AF_INET, 0, &route_cache)){
+        print_debug("Adding cache failed\n");
         return FAILURE;
     }
 
-    nl_cache_foreach(route_cache, __get_load_balance_route_cb, &lb_route);
+    print_debug("Finding load balance route\n");
+    nl_cache_foreach_filter(route_cache, (struct nl_object*)filter, __get_load_balance_route_cb, &find_lb);
 
-    if(!lb_route){
+    if(!find_lb.found){
+        print_debug("Load balance route not found...create it\n");
         lb_route = create_load_balance_route(sock);
     } else {
+        lb_route = find_lb.lb_route;
+        print_debug("Load balance route found...delete it\n");
         rtnl_route_delete(sock, lb_route, 0);
     }
 
     if(flag == LB_ADD_NEXTHOP){
+        print_debug("Adding nexthop to load balance route\n");
         rtnl_route_add_nexthop(lb_route, nexthop);
     } else if(flag == LB_DELETE_NEXTHOP) {
+        print_debug("Deleting nexthop from load balance route\n");
         rtnl_route_remove_nexthop(lb_route, nexthop);
     } else {
         return FAILURE;
     }
-
-    if(!rtnl_route_add(sock, lb_route, 0)){
+    print_debug("Adding loadbalance route\n");
+    int ret = rtnl_route_add(sock, lb_route, 0);
+    if(!ret){
+        print_debug("Sucess adding loadbalance route: %d\n", ret);
         return SUCCESS;
     } else {
+        print_debug("Failed adding loadbalance route: %d\n", ret);
         return FAILURE;
     }
 }
@@ -1393,7 +1425,7 @@ __load_balance_create_nexthop(uint32_t gateway, uint32_t ifidx, uint32_t weight)
 
     rtnl_route_nh_set_ifindex(nh, ifidx);
     rtnl_route_nh_set_gateway(nh, gw);
-    rtnl_route_nh_set_weight(nh, weight);
+    rtnl_route_nh_set_weight(nh, 0);
     return nh;
 }
 
@@ -1407,8 +1439,10 @@ add_load_balance_route(struct nl_sock *sock, uint32_t gateway, uint32_t ifidx, u
     struct rtnl_nexthop *nh;
     nh = __load_balance_create_nexthop(gateway, ifidx, weight);
     if(nh){
+        print_debug("Created nexthop\n");
         return __modify_load_balance_route(sock, nh, LB_ADD_NEXTHOP);
     } else {
+        print_error("Failed to create nexthop\n");
         return FAILURE;
     }
 }
@@ -1423,8 +1457,10 @@ delete_load_balance_route(struct nl_sock *sock, uint32_t gateway, uint32_t ifidx
     struct rtnl_nexthop *nh;
     nh = __load_balance_create_nexthop(gateway, ifidx, weight);
     if(nh){
+        print_debug("Created nexthop\n");
         return __modify_load_balance_route(sock, nh, LB_DELETE_NEXTHOP);
     } else {
+        print_error("Failed to create nexthop\n");
         return FAILURE;
     }
 }
@@ -1437,6 +1473,7 @@ int
 add_load_balance_route_from_rtnl(struct nl_sock *sock, struct rtnl_route *route)
 {
     if(!route){
+        print_error("Route is null\n");
         return FAILURE;
     }
 
@@ -1450,8 +1487,9 @@ add_load_balance_route_from_rtnl(struct nl_sock *sock, struct rtnl_route *route)
         #else
         uint32_t weight = 1;
         #endif
-        return add_load_balance_route(sock, gateway, ifidx, weight);
+        return add_load_balance_route(sock, gateway, ifidx, 1);
     } else {
+        print_error("Route didn't have a single nexthop\n");
         return FAILURE;
     }
 }
@@ -1477,8 +1515,9 @@ delete_load_balance_route_from_rtnl(struct nl_sock *sock, struct rtnl_route *rou
         #else
         uint32_t weight = 1;
         #endif
-        return delete_load_balance_route(sock, gateway, ifidx, weight);
+        return delete_load_balance_route(sock, gateway, ifidx, 1);
     } else {
+        print_error("Route didn't have a single nexthop\n");
         return FAILURE;
     }
 }
