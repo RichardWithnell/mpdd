@@ -21,11 +21,9 @@
 
 #include "list.h"
 
-enum {
-    IFF_NOMULTIPATH = 0x80000,       /*Disable for MPTCP        */
-    IFF_MPBACKUP = 0x100000,  /*Use as back up path for MPTCP*/
-    IFF_MPHANDOVER = 0x200000
-};
+#define IFF_NOMULTIPATH 0x80000
+#define IFF_MPBACKUP 0x100000
+#define IFF_MPHANDOVER 0x200000
 
 #define CONFIG "/etc/mpd/mpd.conf"
 #define IGNORE_CONFIG "/etc/mpd/ignore.conf"

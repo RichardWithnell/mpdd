@@ -22,6 +22,7 @@
 
 #include "debug.h"
 #include "interface.h"
+#include "resource_interface.h"
 
 #define SUCCESS 0x00
 #define FAILURE -0x01
@@ -830,7 +831,6 @@ add_route(struct nl_sock* sock,
     }
 
     /*Add the default gateway to the list*/
-
     ifidx = rtnl_route_nh_get_ifindex(nexthop);
     p = (struct physical_interface*)get_interface_by_idx(ifidx, iff_list);
     if (!p) {
@@ -874,6 +874,9 @@ add_route(struct nl_sock* sock,
     } else {
         print_debug("Failed to get external IP address\n");
     }
+
+    create_table_file(p->address, p->super.ifidx, DIRECT_RESOURCE);
+
     print_debug(" Done\n");
     return p;
 }
@@ -901,6 +904,7 @@ int delete_route_from_physical(List* l, uint32_t route)
                        (long long)monotime.tv_sec,
                        (long)monotime.tv_nsec);
 #endif
+            delete_table_file(iff->address, DIRECT_RESOURCE);
         }
     }
     return 0;

@@ -1,3 +1,5 @@
+#ifndef __MPDD_CONFIG__
+#define __MPDD_CONFIG__
 #include "list.h"
 
 #define MAX_HOST_ID_SIZE 32
@@ -14,5 +16,5 @@ struct mpd_config
 
 struct mpd_config* load_min_config(char* path);
 struct mpd_config* load_config(char* path);
-
+#endif
 /* end file: config.h */

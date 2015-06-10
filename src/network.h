@@ -19,15 +19,17 @@
 #ifndef MPD_NETWORK
 #define MPD_NETWORK
 
-#include "interface.h"
-#include "link_monitor.h"
-#include "list.h"
-#include "queue.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <sys/socket.h>
+
+#include "interface.h"
+#include "link_monitor.h"
+#include "list.h"
+#include "queue.h"
+
 
 #define DISS_MODE_MESH 0x00
 #define DISS_MODE_TREE 0x01
@@ -44,17 +46,10 @@ enum {
     MPD_HDR_HEARTBEAT = 0x02
 };
 
-//#define NET_MP_MODE_BACKUP 0x03
-//#define NET_MP_MODE_HANDOVER 0x02
-//#define NET_MP_MODE_OFF 0x00
-//#define NET_MP_MODE_ON 0x01
-
 enum {
     SUCCESS = 0x00,
     FAILURE = -0x01
 };
-
-
 
 enum {
     ENTRY_TYPE_DEL = 0x00,

@@ -16,6 +16,9 @@
    github.com/richardwithnell
  */
 
+#ifndef LMNL_INTERFACE
+#define LMNL_INTERFACE
+
 #include <netlink/addr.h>
 #include <netlink/cache.h>
 #include <netlink/data.h>
@@ -77,3 +80,5 @@ struct rtnl_route* mnl_to_rtnl_route(struct mnl_route* route);
 struct mnl_addr* rtnl_to_mnl_addr(struct rtnl_addr* addr);
 struct mnl_link* rtnl_to_mnl_link(struct rtnl_link* link);
 struct mnl_route* rtnl_to_mnl_route(struct rtnl_route* route);
+
+#endif

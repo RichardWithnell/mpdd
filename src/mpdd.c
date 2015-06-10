@@ -42,6 +42,7 @@
 #include "network.h"
 #include "queue.h"
 #include "util.h"
+#include "resource_interface.h"
 
 #define ENABLE_HEARTBEAT 1
 #define ENABLE_LINK_TIMEOUT 1
@@ -745,7 +746,6 @@ delete_old_route(
                         pvirt->address,
                         pvirt->netmask,
                         pvirt->attach->super.ifidx);
-
                     break;
                 }
                 j++;
@@ -777,6 +777,9 @@ delete_old_route(
         virt->out->super.ifidx);
     delete_default_route(sock, virt);
     list_remove(phy->virt_list, i);
+
+    delete_table_file(ntohl(virt->address), INDIRECT_RESOURCE);
+
 #ifdef EVAL
     struct timespec monotime;
     clock_gettime(CLOCK_REALTIME, &monotime);
@@ -922,7 +925,6 @@ handle_gateway_update(
         int16_t free_table = -1;
         exists = 0;
 
-
         if (entry->depth >= MAX_DEPTH) {
             return FAILURE;
         }
@@ -1025,10 +1027,10 @@ handle_gateway_update(
             destroy_virt_interface(v);
             fprintf(stderr, "Failed to malloc a new list item\n");
         }
-        print_debug("Add the new virtual interface to the phy list\n");
+        print_verb("Add the new virtual interface to the phy list\n");
         item->data = (void*)v;
-        print_debug("Add address to the interface\n");
-        print_debug("Virt IP: %s\n", ip_to_str(htonl(v->address)));
+        print_verb("Add address to the interface\n");
+        print_verb("Virt IP: %s\n", ip_to_str(htonl(v->address)));
         print_debug("Physical Virt List: %p\n", phy->virt_list);
 
         pthread_mutex_lock(&(squeue.iff_list_lock));
@@ -1045,11 +1047,10 @@ handle_gateway_update(
                         phy->virt_list), phy->super.ifname);
         pthread_mutex_unlock(&(squeue.iff_list_lock));
 
-        print_debug("Lock ifflist\n");
         pthread_mutex_lock(&(squeue.iff_list_lock));
 
         print_debug("Adding Interface with Label: %d\n",
-            list_size(phy->virt_list));
+                        list_size(phy->virt_list));
         print_debug("calling add_address()\n");
         if(add_address(sock,
                        v->address,
@@ -1088,8 +1089,15 @@ handle_gateway_update(
         create_rules_for_gw(sock, virt_list, (struct interface*)v);
         print_debug("Create the routing table for virtual gateway\n");
         //create_routing_table(sock, (struct interface*)v);
-        create_routing_table_default_route(sock, (struct interface*)v, v->attach->super.ifidx, v->table);
-        create_routing_table_subnet_route(sock, (struct interface*)v, v->attach->super.ifidx, v->table);
+        create_routing_table_default_route(sock,
+            (struct interface*)v,
+            v->attach->super.ifidx,
+            v->table);
+
+        create_routing_table_subnet_route(sock,
+            (struct interface*)v,
+            v->attach->super.ifidx,
+            v->table);
 
         {
             int res = 0;
@@ -1117,6 +1125,9 @@ handle_gateway_update(
         pthread_mutex_lock(&squeue.flag_lock);
         squeue.flag = 1;
         pthread_mutex_unlock(&squeue.flag_lock);
+
+        create_table_file(ntohl(v->address), v->table, INDIRECT_RESOURCE);
+
 #ifdef EVAL
         struct timespec monotime;
         clock_gettime(CLOCK_REALTIME, &monotime);

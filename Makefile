@@ -30,7 +30,8 @@ OBJS = $(BUILD_PATH)network.o \
        $(BUILD_PATH)util.o \
        $(BUILD_PATH)config.o \
        $(BUILD_PATH)queue.o \
-			 $(BUILD_PATH)lmnl_interface.o \
+	   $(BUILD_PATH)lmnl_interface.o \
+	   $(BUILD_PATH)resource_interface.o \
        $(BUILD_PATH)list.o
 
 TESTS = $(TEST_PATH)test_link_monitor
@@ -71,6 +72,9 @@ $(BUILD_PATH)lmnl_interface.o: $(SRC_PATH)lmnl_interface.c $(SRC_PATH)lmnl_inter
 
 $(BUILD_PATH)interface.o: $(SRC_PATH)interface.c $(SRC_PATH)interface.h
 	$(CC) $(CFLAGS) -c $(SRC_PATH)interface.c -I$(INC_PATH) $(LDFLAGS) $(OPTS) -o $(BUILD_PATH)interface.o
+
+$(BUILD_PATH)resource_interface.o: $(SRC_PATH)resource_interface.c $(SRC_PATH)resource_interface.h
+	$(CC) $(CFLAGS) -c $(SRC_PATH)resource_interface.c -I$(INC_PATH) $(LDFLAGS) $(OPTS) -o $(BUILD_PATH)resource_interface.o
 
 $(BUILD_PATH)config.o: $(SRC_PATH)config.c $(SRC_PATH)config.h
 	$(CC) $(CFLAGS) -c $(SRC_PATH)config.c -I$(INC_PATH) $(OPTS) -lconfig -o $(BUILD_PATH)config.o

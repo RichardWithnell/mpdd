@@ -342,7 +342,7 @@ void* recv_broadcast(struct send_queue* squeue)
                                 (long long)monotime.tv_sec,
                                 (long)monotime.tv_nsec);
                             #endif
-                            //usleep((int)(rand() / ((double)RAND_MAX + 1.00) * (1000000 + 1)));
+                            //usleep((double)(rand() / ((double)RAND_MAX + 1.00) * (1000000 + 1)));
                             send_request_broadcast(phy, sock, MPD_HDR_REQUEST);
                             //phy->packet_received = 1;
                         }

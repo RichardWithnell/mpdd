@@ -36,6 +36,7 @@
 #include <semaphore.h>
 
 #include "queue.h"
+
 struct cache_monitor
 {
     Queue* queue;
