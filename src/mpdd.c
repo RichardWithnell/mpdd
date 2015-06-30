@@ -778,7 +778,9 @@ delete_old_route(
     delete_default_route(sock, virt);
     list_remove(phy->virt_list, i);
 
+#ifndef DEBUG
     delete_table_file(ntohl(virt->address), INDIRECT_RESOURCE);
+#endif
 
 #ifdef EVAL
     struct timespec monotime;
@@ -1125,9 +1127,9 @@ handle_gateway_update(
         pthread_mutex_lock(&squeue.flag_lock);
         squeue.flag = 1;
         pthread_mutex_unlock(&squeue.flag_lock);
-
+#ifndef DEBUG
         create_table_file(ntohl(v->address), v->table, INDIRECT_RESOURCE);
-
+#endif
 #ifdef EVAL
         struct timespec monotime;
         clock_gettime(CLOCK_REALTIME, &monotime);
