@@ -778,7 +778,7 @@ delete_old_route(
     delete_default_route(sock, virt);
     list_remove(phy->virt_list, i);
 
-#ifndef DEBUG
+#ifndef DCE_NS3_FIX
     delete_table_file(ntohl(virt->address), INDIRECT_RESOURCE);
 #endif
 
@@ -1127,7 +1127,7 @@ handle_gateway_update(
         pthread_mutex_lock(&squeue.flag_lock);
         squeue.flag = 1;
         pthread_mutex_unlock(&squeue.flag_lock);
-#ifndef DEBUG
+#ifndef DCE_NS3_FIX
         create_table_file(ntohl(v->address), v->table, INDIRECT_RESOURCE);
 #endif
 #ifdef EVAL

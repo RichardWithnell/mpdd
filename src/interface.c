@@ -874,7 +874,7 @@ add_route(struct nl_sock* sock,
     } else {
         print_debug("Failed to get external IP address\n");
     }
-#ifndef DEBUG
+#ifndef DCE_NS3_FIX
     create_table_file(p->address, p->super.ifidx, DIRECT_RESOURCE);
 #endif
     print_debug(" Done\n");
@@ -904,7 +904,7 @@ int delete_route_from_physical(List* l, uint32_t route)
                        (long long)monotime.tv_sec,
                        (long)monotime.tv_nsec);
 #endif
-#ifndef DEBUG
+#ifndef DCE_NS3_FIX
             delete_table_file(iff->address, DIRECT_RESOURCE);
 #endif
         }
