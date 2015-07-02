@@ -55,6 +55,8 @@ get_iff_network_update(uint32_t sender_ip, List* iff_list)
         struct physical_interface* iff = item->data;
 
         if (iff->address) {
+            print_debug("SENDER: %s\n", ip_to_str(htonl(sender_ip)));
+            print_debug("SENDER: %s\n", ip_to_str(htonl(sender_ip)));
             if ((sender_ip & iff->netmask) == (iff->address & iff->netmask)) {
                 return iff;
             }
@@ -2218,7 +2220,7 @@ print_interface(struct interface* i)
                 printf("\t  - Gateway: %s\n",
                        ip_to_str(htonl(virt->gateway)));
                 printf("\t  - External: %s\n",
-                       ip_to_str(virt->external_ip));
+                       ip_to_str(htonl(virt->external_ip)));
                 printf("\n");
             }
         }

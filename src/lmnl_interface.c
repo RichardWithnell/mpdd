@@ -28,14 +28,14 @@ int validate_link_attr_cb(const struct nlattr* attr, void* data)
     }
 
     switch(type) {
-    case IFLA_IFNAME:
-        if (mnl_attr_validate(attr, MNL_TYPE_STRING) < 0) {
-            perror("mnl_attr_validate2");
-            return MNL_CB_ERROR;
-        }
-        break;
-    default:
-        break;
+        case IFLA_IFNAME:
+            if (mnl_attr_validate(attr, MNL_TYPE_STRING) < 0) {
+                perror("mnl_attr_validate2");
+                return MNL_CB_ERROR;
+            }
+            break;
+        default:
+            break;
     }
 
     tb[type] = attr;
@@ -54,20 +54,20 @@ int validate_addr_attr_cb(const struct nlattr* attr, void* data)
     }
 
     switch(type) {
-    case IFA_LABEL:
-        if (mnl_attr_validate(attr, MNL_TYPE_STRING) < 0) {
-            perror("mnl_attr_validate");
-            return MNL_CB_ERROR;
-        }
-        break;
-    case IFA_ADDRESS:
-    case IFA_LOCAL:
-    case IFA_BROADCAST:
-        if (mnl_attr_validate(attr, MNL_TYPE_BINARY) < 0) {
-            perror("mnl_attr_validate");
-            return MNL_CB_ERROR;
-        }
-        break;
+        case IFA_LABEL:
+            if (mnl_attr_validate(attr, MNL_TYPE_STRING) < 0) {
+                perror("mnl_attr_validate");
+                return MNL_CB_ERROR;
+            }
+            break;
+        case IFA_ADDRESS:
+        case IFA_LOCAL:
+        case IFA_BROADCAST:
+            if (mnl_attr_validate(attr, MNL_TYPE_BINARY) < 0) {
+                perror("mnl_attr_validate");
+                return MNL_CB_ERROR;
+            }
+            break;
     }
     tb[type] = attr;
     return MNL_CB_OK;

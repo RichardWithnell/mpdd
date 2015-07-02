@@ -27,7 +27,7 @@
 #define DEBUG
 #define ERROR
 //#define VERBOSE
-#define LOG
+//#define LOG
 #define EVAL
 
 #ifdef EVAL
@@ -78,14 +78,27 @@ extern const int PREFER_OWN_LINKS;
     do { if(DO_EVAL) {fprintf(stdout,  "EVAL:" fmt, \
                               ## __VA_ARGS__); } } while (0);
 
+/*
+struct timespec monotime;
+char buff[32];
+struct nl_addr* gw = rtnl_route_nh_get_gateway(nh);
+clock_gettime(CLOCK_REALTIME, &monotime);
+print_eval("NR:%s:%s:%lld.%.9ld\n",
+           host_name,
+           nl_addr2str(gw, buff, (size_t)32),
+           (long long)monotime.tv_sec,
+           (long)monotime.tv_nsec);
+*/
+
 #define print_log(fmt, ...) \
     do { \
         struct timespec monotime; \
         clock_gettime(CLOCK_MONOTONIC, &monotime); \
         if(DO_LOG) { \
-            fprintf(stdout,  "LOG:%s:%d:%s():%lld: " \
-                    fmt, __FILE__, __LINE__, __func__, \
+            fprintf(stdout,  "LOG:%s:%s:%d:%s():%lld.%.9ld: " \
+                    fmt, host_name, __FILE__, __LINE__, __func__, \
                     (long long)monotime.tv_sec, \
+                    (long)monotime.tv_nsec,\
                     ## __VA_ARGS__); } \
     } while (0)
 
@@ -94,9 +107,10 @@ extern const int PREFER_OWN_LINKS;
         struct timespec monotime; \
         clock_gettime(CLOCK_MONOTONIC, &monotime); \
         if(DO_ERROR) { \
-            fprintf(stderr, "ERROR:%s:%d:%s():%lld: " \
-                    fmt, __FILE__, __LINE__, __func__, \
+            fprintf(stderr, "ERROR:%s:%s:%d:%s():%lld.%.9ld: " \
+                    fmt, host_name, __FILE__, __LINE__, __func__, \
                     (long long)monotime.tv_sec, \
+                    (long)monotime.tv_nsec,\
                     ## __VA_ARGS__); } \
     } while (0)
 
@@ -105,9 +119,10 @@ extern const int PREFER_OWN_LINKS;
         struct timespec monotime; \
         clock_gettime(CLOCK_MONOTONIC, &monotime); \
         if(DO_DEBUG) { \
-            fprintf(stdout, "DEBUG:%s:%d:%s():%lld:  " \
-                    fmt, __FILE__, __LINE__, __func__, \
+            fprintf(stdout, "DEBUG:%s:%s:%d:%s():%lld.%.9ld: " \
+                    fmt, host_name, __FILE__, __LINE__, __func__, \
                     (long long)monotime.tv_sec, \
+                    (long)monotime.tv_nsec,\
                     ## __VA_ARGS__); } \
     } while (0)
 
@@ -115,9 +130,10 @@ extern const int PREFER_OWN_LINKS;
     do { struct timespec monotime; \
          clock_gettime(CLOCK_MONOTONIC, &monotime); \
          if(DO_VERB) { \
-             fprintf(stdout,  "VERB:%s:%d:%s():%lld: " \
-                     fmt, __FILE__, __LINE__, __func__, \
+             fprintf(stdout, "VERB:%s:%s:%d:%s():%lld.%.9ld: " \
+                     fmt, host_name, __FILE__, __LINE__, __func__, \
                      (long long)monotime.tv_sec, \
+                     (long)monotime.tv_nsec,\
                      ## __VA_ARGS__); } \
     } while (0)
 #else // ifdef DCE_NS3_FIX

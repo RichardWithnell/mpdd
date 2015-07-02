@@ -44,10 +44,10 @@
 #include "util.h"
 #include "resource_interface.h"
 
-#define ENABLE_HEARTBEAT 1
-#define ENABLE_LINK_TIMEOUT 1
+#define ENABLE_HEARTBEAT 0
+#define ENABLE_LINK_TIMEOUT 0
 #define BACKUP_LINK_SUPPORT 1
-#define ENABLE_LOAD_BALANCE 1
+#define ENABLE_LOAD_BALANCE 0
 
 static const int MAX_DEPTH = 255;
 static const int HEART_BEAT_TIME = 20;
@@ -121,11 +121,11 @@ static void* check_timeout(void* data)
                 (struct virtual_interface*)item->data;
             if(virt && (virt->attach == virt->out)) {
                 virt->last_update -= LINK_CHECK_TIME;
-                printf("Virt Last Update: %d\n", virt->last_update);
+                print_debug("Virt Last Update: %d\n", virt->last_update);
                 if(virt->last_update <= 0) {
                     delete_old_route(sock, virt->out, virt, phys_list, virt_list, i);
                     /*Add to event list*/
-                    printf("Virt %s: timed out\n",
+                    print_debug("Virt %s: timed out\n",
                         ip_to_str(htonl(virt->address)));
                 }
             }
@@ -722,6 +722,10 @@ delete_old_route(
             Litem *pvitem;
             print_debug(
                 "Loop through the virtual interfaces for phy\n");
+            if(!phys->virt_list){
+                print_error("Virt list not created\n");
+                continue;
+            }
             list_for_each(pvitem, phys->virt_list){
                 if(virt->table == ((struct virtual_interface*)
                                    pvitem->data)->table) {
@@ -831,8 +835,16 @@ delete_old_routes(
 
     pthread_mutex_lock(&(squeue.iff_list_lock));
 
+    print_debug("Get Interface For Update From: %s\n", ip_to_str(htonl(addr->sin_addr.s_addr)));
+
     phy = get_iff_network_update(addr->sin_addr.s_addr,
                                  iff_list);
+    if(!phy){
+        print_error("Didn't find phy for address: %s\n", ip_to_str(htonl(addr->sin_addr.s_addr)));
+        pthread_mutex_unlock(&(squeue.iff_list_lock));
+        return FAILURE;
+    }
+
     phy->packet_received = 1;
     pthread_mutex_unlock(&(squeue.iff_list_lock));
 
@@ -911,6 +923,11 @@ handle_gateway_update(
     pthread_mutex_lock(&(squeue.iff_list_lock));
     phy = get_iff_network_update(addr->sin_addr.s_addr,
                                  iff_list);
+    if(!phy){
+        print_error("Didn't find phy for address: %s\n", ip_to_str(htonl(addr->sin_addr.s_addr)));
+        pthread_mutex_unlock(&(squeue.iff_list_lock));
+        return FAILURE;
+    }
     pthread_mutex_unlock(&(squeue.iff_list_lock));
 
     host_id = get_host_id(phy);
@@ -1122,14 +1139,17 @@ handle_gateway_update(
         }
         pthread_mutex_unlock(&(squeue.iff_list_lock));
 
+#ifndef DCE_NS3_FIX
+        create_table_file(ntohl(v->address), v->table, INDIRECT_RESOURCE);
+#endif
+
+
         /*Flag the udpate*/
         print_debug("Flagging to update hosts\n");
         pthread_mutex_lock(&squeue.flag_lock);
         squeue.flag = 1;
         pthread_mutex_unlock(&squeue.flag_lock);
-#ifndef DCE_NS3_FIX
-        create_table_file(ntohl(v->address), v->table, INDIRECT_RESOURCE);
-#endif
+
 #ifdef EVAL
         struct timespec monotime;
         clock_gettime(CLOCK_REALTIME, &monotime);
@@ -1141,6 +1161,8 @@ handle_gateway_update(
                    (long)monotime.tv_nsec);
 #endif
     }
+
+
 
     return SUCCESS;
 }
