@@ -304,6 +304,7 @@ struct mpd_config* load_config(char* path)
     }
 
 
+
     if (config_lookup_bool(conf, "application.host", &host) == CONFIG_FALSE) {
         print_debug("No host value, using default\n");
     }
@@ -402,7 +403,8 @@ struct mpd_config* load_config(char* path)
     config_destroy(conf);
 
     if(!default_host){
-        memcpy(mpd->host_id, host_id, 16);
+        print_verb("Set Host Id: %s\n", host_id);
+        strcpy(mpd->host_id, host_id);
     } else {
         strcpy(mpd->host_id, DEFAULT_HOST_ID);
     }
