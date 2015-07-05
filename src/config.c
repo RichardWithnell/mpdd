@@ -234,7 +234,7 @@ struct mpd_config* load_min_config(char* path)
  */
 struct mpd_config* load_config(char* path)
 {
-    const char* host_id;
+    const char* host_id = (char*)0;
     struct mpd_config* mpd = (struct mpd_config*)0;
     config_t* conf = (config_t*)0;
     config_t cfg;
