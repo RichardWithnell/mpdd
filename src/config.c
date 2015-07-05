@@ -402,6 +402,7 @@ struct mpd_config* load_config(char* path)
 
     config_destroy(conf);
 
+    memset(mpd->host_id, 0, 32);
     if(!default_host){
         print_verb("Set Host Id: %s\n", host_id);
         strcpy(mpd->host_id, host_id);
