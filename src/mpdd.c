@@ -433,6 +433,8 @@ main(int argc, char* argv[])
     ignore_list = config->ignore;
     strcpy(host_name, config->host_id);
 
+    print_debug("Host Name: %s config->host_id: %s\n", host_name, config->host_id);
+
     mon_data.queue = &update_queue;
     mon_data.lock = &update_lock;
     mon_data.barrier = &update_barrier;

@@ -713,7 +713,8 @@ create_update_packet(struct physical_interface* iff, struct mpdpacket** packet)
 
     if (!size) {
         print_error("Interface has no virtual addresses\n");
-        return FAILURE;
+        print_debug("No more exits available?");
+        //return FAILURE;
     }
 
     pkt = malloc(sizeof(struct mpdpacket));

@@ -38,6 +38,7 @@ TESTS = $(TEST_PATH)test_link_monitor
 
 all: mpdd
 
+
 run_tests: $(TESTS)
 	@$(TEST_BIN)test_link_monitor || (echo "Test Link Monitor Failed $$?"; exit 1)
 	@echo "Test Link Monitor Passed"
@@ -54,6 +55,9 @@ build_arch_dir:
 
 bin_arch_dir:
 	@if [ ! -d "$(BIN_PATH)" ]; then mkdir -p $(BIN_PATH); fi;
+
+packet_test: build_arch_dir bin_arch_dir $(SRC_PATH)packet_tester.c $(OBJS)
+	$(CC) $(CFLAGS) -o $(BIN_PATH)packet_tester $(SRC_PATH)packet_tester.c $(OPTS) $(OBJS) -I$(INC_PATH) $(LDFLAGS) -lpthread -lconfig
 
 mpdd: build_arch_dir bin_arch_dir $(SRC_PATH)mpdd.c $(OBJS)
 	$(CC) $(CFLAGS) -o $(BIN_PATH)mpdd $(SRC_PATH)mpdd.c $(OPTS) $(OBJS) -I$(INC_PATH) $(LDFLAGS) -lpthread -lconfig
