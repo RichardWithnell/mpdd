@@ -298,12 +298,14 @@ struct mpd_config* load_config(char* path)
         return 0;
     }
 
+    /*
     if (config_lookup_string(conf, "host_id", &host_id) == CONFIG_FALSE) {
         print_debug("No host_id value, using default\n");
         default_host = 1;
     }
+    */
 
-
+    default_host = 1;
 
     if (config_lookup_bool(conf, "application.host", &host) == CONFIG_FALSE) {
         print_debug("No host value, using default\n");
