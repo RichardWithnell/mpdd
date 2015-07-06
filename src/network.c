@@ -525,14 +525,12 @@ send_update_broadcast(List* iff_list, int sock)
 
             len = serialize_packet(packet, &data);
             print_debug("Created serialized packet: length %d bytes\n", len);
-            /*
-            //#ifdef DEBUG
+
             struct mpdpacket* test_packet;
             deserialize_packet(data, &test_packet);
             print_packet(test_packet);
             free(test_packet);
-            //#endif
-            */
+
             free(packet);
 
             memset(&(iff->saddr), '0', sizeof(struct sockaddr_in));
