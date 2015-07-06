@@ -146,7 +146,7 @@ void* recv_broadcast(struct send_queue* squeue)
 
     maxfd = sock + 1;
 
-    buff = malloc(512);
+    buff = malloc(2048);
 
     mon = squeue->mon_data;
     print_debug("Entering main loop\n");
@@ -173,7 +173,7 @@ void* recv_broadcast(struct send_queue* squeue)
             if (FD_ISSET(sock, &rfds)) {
                 print_debug("Read FDS Set\n");
 
-                if ((ret = recvfrom(sock, buff, (size_t)512, 0,
+                if ((ret = recvfrom(sock, buff, (size_t)2048, 0,
                                     (struct sockaddr*)&(saddr), &fromlen)) == 0) {
                     perror("recv_broadcast() - recvfrom()");
                     continue;
