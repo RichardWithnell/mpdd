@@ -1037,10 +1037,6 @@ handle_gateway_update(
         v->metric = entry->metric;
 
         print_debug("ENTRY METRIC: %zu\n", entry->metric);
-        print_debug("ENTRY METRIC: %zu\n", v->metric);
-
-        print_debug("ENTRY METRIC: %zu\n", htonl(entry->metric));
-        print_debug("ENTRY METRIC: %zu\n", htonl(v->metric));
 
         v->external_ip = htonl(entry->ext_ip);
         v->last_update = LINK_TIMEOUT;
@@ -1153,12 +1149,6 @@ handle_gateway_update(
 #endif
 
 
-        /*Flag the udpate*/
-        print_debug("Flagging to update hosts\n");
-        pthread_mutex_lock(&squeue.flag_lock);
-        squeue.flag = 1;
-        pthread_mutex_unlock(&squeue.flag_lock);
-
 #ifdef EVAL
         struct timespec monotime;
         clock_gettime(CLOCK_REALTIME, &monotime);
@@ -1171,6 +1161,11 @@ handle_gateway_update(
 #endif
     }
 
+    /*Flag the udpate*/
+    print_debug("Flagging to update hosts\n");
+    pthread_mutex_lock(&squeue.flag_lock);
+    squeue.flag = 1;
+    pthread_mutex_unlock(&squeue.flag_lock);
 
 
     return SUCCESS;

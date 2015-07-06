@@ -172,7 +172,7 @@ void* recv_broadcast(struct send_queue* squeue)
             exists = 0;
             if (FD_ISSET(sock, &rfds)) {
                 print_debug("Read FDS Set\n");
-
+                memset(buff, 0, 2048);
                 if ((ret = recvfrom(sock, buff, (size_t)2048, 0,
                                     (struct sockaddr*)&(saddr), &fromlen)) == 0) {
                     perror("recv_broadcast() - recvfrom()");
