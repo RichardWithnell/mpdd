@@ -221,6 +221,8 @@ void* recv_broadcast(struct send_queue* squeue)
 
                 deserialize_packet(buff, &pkt);
 
+                print_packet(pkt);
+
                 if (!pkt) {
                     print_debug("Failed to deserialize packet\n");
                     continue;
