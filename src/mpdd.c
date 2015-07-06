@@ -1035,6 +1035,13 @@ handle_gateway_update(
         v->netmask = htonl(entry->netmask);
         v->depth = entry->depth + 1;
         v->metric = entry->metric;
+
+        print_debug("ENTRY METRIC: %zu\n", entry->metric);
+        print_debug("ENTRY METRIC: %zu\n", v->metric);
+
+        print_debug("ENTRY METRIC: %zu\n", htonl(entry->metric));
+        print_debug("ENTRY METRIC: %zu\n", htonl(v->metric));
+
         v->external_ip = htonl(entry->ext_ip);
         v->last_update = LINK_TIMEOUT;
         v->type_gateway = 1;

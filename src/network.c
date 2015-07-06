@@ -571,6 +571,7 @@ void print_packet(struct mpdpacket* pkt)
             printf("\tGateway: %s\n", ip_to_str(e->gateway));
             printf("\tExternal: %s\n", ip_to_str(e->ext_ip));
             printf("\tDepth: %d\n", e->depth);
+            printf("\tMetric: %d\n", e->metric);
             printf("\tType: %d\n", e->type);
         }
         printf("\n");
