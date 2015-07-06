@@ -953,7 +953,11 @@ handle_gateway_update(
         /*check IP doesnt already exist;*/
         host_ip = htonl((entry->netmask & entry->address) | htonl(host_id));
 
-        print_debug("Lock ifflist\n");
+        print_debug("\tHost ID: %s\n", ip_to_str(htonl(host_id)));
+        print_debug("\tEntry Netmask: %s\n", ip_to_str(htonl(entry->netmask)));
+        print_debug("\tEntry Address: %s\n", ip_to_str(htonl(entry->address)));
+        print_debug("Checking Host IP Doesnt Exist: %s\n", ip_to_str(htonl(host_ip)));
+
         pthread_mutex_lock(&(squeue.iff_list_lock));
         list_for_each(pitem, iff_list){
             temp_phys = (struct physical_interface*)pitem->data;
@@ -970,10 +974,6 @@ handle_gateway_update(
         }
 
         pthread_mutex_unlock(&(squeue.iff_list_lock));
-        print_debug("Unlock ifflist\n");
-
-        print_debug("Virt List: %p\n", virt_list);
-        print_debug("Virt List: %p\n", virt_list->front);
 
         if(virt_list) {
             list_for_each(vitem, virt_list){
