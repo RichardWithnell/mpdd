@@ -102,13 +102,13 @@ int send_clear(char* dev_address, char *broadcast_address, char *broadcast_dev_n
     close(sock);
     return 0;
 }
-int send_update(char* dev_address, char *broadcast_address, char *broadcast_dev_name)
+int send_update(char* dev_address, char *broadcast_address, char *broadcast_dev_name, int resources)
 {
     struct sockaddr_in saddr;
     struct sockaddr_in in_addr;
     struct sockaddr_in in_addr_2;
     struct physical_interface *bc_dev = (struct physical_interface*)0;
-    int resources_to_announce = 3;
+    int resources_to_announce = resources;
     int iterations = 1;
     int idx = 0;
     char* base_gateway = "10.1.1.1";
@@ -221,7 +221,7 @@ int send_update(char* dev_address, char *broadcast_address, char *broadcast_dev_
 
 void print_usage(void)
 {
-    printf("packet_tester [broadcast_addr] [dev_name]\n");
+    printf("packet_tester {0 clear, < update} [dev_addr] [broadcast_addr] [dev_name] \n");
 }
 
 int main(int argc, char *argv[])
@@ -232,7 +232,7 @@ int main(int argc, char *argv[])
     }
     if(atoi(argv[1])){
         printf("Send Update\n");
-        send_update(argv[2], argv[3], argv[4]);
+        send_update(argv[2], argv[3], argv[4], atoi(argv[1]));
     } else {
         printf("Send Clear\n");
         send_clear(argv[2], argv[3], argv[4]);

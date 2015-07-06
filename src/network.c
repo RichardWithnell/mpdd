@@ -209,13 +209,6 @@ void* recv_broadcast(struct send_queue* squeue)
                     continue;
                 }
 
-                deserialize_packet(buff, &pkt);
-
-                if (!pkt) {
-                    print_debug("Failed to deserialize packet\n");
-                    continue;
-                }
-
                 #ifdef EVAL
                 struct timespec monotime;
                 clock_gettime(CLOCK_REALTIME, &monotime);
@@ -225,6 +218,13 @@ void* recv_broadcast(struct send_queue* squeue)
                     (long long)monotime.tv_sec,
                     (long)monotime.tv_nsec);
                 #endif
+
+                deserialize_packet(buff, &pkt);
+
+                if (!pkt) {
+                    print_debug("Failed to deserialize packet\n");
+                    continue;
+                }
 
                 if (pkt->header->type == MPD_HDR_UPDATE) {
                     Qitem* item = 0;
@@ -311,7 +311,14 @@ void* recv_broadcast(struct send_queue* squeue)
             } else if (FD_ISSET(sock, &wfds)) {
                 pthread_mutex_lock(&(squeue->flag_lock));
                 if (squeue->flag) {
-                    print_debug("Send flag set\n");
+                    #ifdef EVAL
+                    struct timespec monotime;
+                    clock_gettime(CLOCK_REALTIME, &monotime);
+                    print_eval("READYTOSEND:%s:%lld.%.9ld\n",
+                        host_name,
+                        (long long)monotime.tv_sec,
+                        (long)monotime.tv_nsec);
+                    #endif
                     send_update_broadcast(squeue->iff_list, sock);
                     squeue->flag = 0;
                 }
