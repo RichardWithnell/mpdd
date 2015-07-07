@@ -18,7 +18,9 @@
 
 #include <errno.h>
 #include <error.h>
+#ifdef USE_LIBCONFIG
 #include <libconfig.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,9 +32,13 @@
 #define MAX_LINE_SIZE 512
 #define DEFAULT_HOST_ID "defhost\0"
 
+#ifdef USE_LIBCONFIG
+
 #if (((LIBCONFIG_VER_MAJOR == 1) && (LIBCONFIG_VER_MINOR >= 4)) \
     || (LIBCONFIG_VER_MAJOR > 1))
 /* use features present in libconfig 1.4 and later */
+#endif
+
 #endif
 
 /*Quick and dirty, should realloc xbytes instead of alloc max_size*/
@@ -229,6 +235,7 @@ struct mpd_config* load_min_config(char* path)
     return mpd;
 }
 
+#ifdef USE_LIBCONFIG
 /**
  *
  */
@@ -420,5 +427,11 @@ struct mpd_config* load_config(char* path)
 
     return mpd;
 }
-
+#else
+struct mpd_config* load_config(char* path)
+{
+    print_error("");
+    return (struct mpd_config*)0;
+}
+#endif
 /* end file: config.c */

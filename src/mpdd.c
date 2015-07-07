@@ -291,7 +291,6 @@ main(int argc, char* argv[])
             case 'c':
                 if(optarg) {
                     int pathlength = strlen(optarg);
-                    print_debug("conf set: %d\n", pathlength);
                     config_path = malloc(pathlength + 1);
                     strcpy(config_path, optarg);
                 }
@@ -300,7 +299,6 @@ main(int argc, char* argv[])
                 if(optarg) {
                     minimal_config = 1;
                     int pathlength = strlen(optarg);
-                    print_debug("min config set: %d\n", pathlength);
                     config_path = malloc(pathlength + 1);
                     strcpy(config_path, optarg);
                 }
@@ -418,10 +416,12 @@ main(int argc, char* argv[])
         printf("Queue init failed\n");
         return FAILURE;
     }
-    print_debug("Loading Config %d\n", minimal_config);
+
     if(minimal_config) {
+        print_debug("Loading Minimal Config %d\n");
         config = load_min_config(config_path);
     } else {
+        print_debug("Loading Full Config %d\n");
         config = load_config(config_path);
     }
     if(!config) {
@@ -851,6 +851,7 @@ delete_old_routes(
     pthread_mutex_unlock(&(squeue.iff_list_lock));
 
     if(!phy->virt_list) {
+        print_error("Virt List is null\n");
         return SUCCESS;
     }
 
@@ -859,6 +860,7 @@ delete_old_routes(
 
         if(!virt) {
             i++;
+            print_error("Virt Data Is null\n");
             continue;
         }
 
@@ -874,6 +876,7 @@ delete_old_routes(
             continue;
         }
 
+        print_verb("Loop Through Packet\n");
         exists = 0;
         for(idx = 0; idx < pkt->header->num; idx++) {
             struct mpdentry* entry = (pkt->entry) + idx;
@@ -889,6 +892,7 @@ delete_old_routes(
         }
 
         if(!exists) {
+            print_debug("Delete old route\n");
             delete_old_route(sock, phy, virt, virt_list, iff_list, i);
         }
         i++;
