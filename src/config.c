@@ -427,11 +427,5 @@ struct mpd_config* load_config(char* path)
 
     return mpd;
 }
-#else
-struct mpd_config* load_config(char* path)
-{
-    print_error("");
-    return (struct mpd_config*)0;
-}
 #endif
 /* end file: config.c */

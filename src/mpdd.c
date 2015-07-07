@@ -418,10 +418,10 @@ main(int argc, char* argv[])
     }
 
     if(minimal_config) {
-        print_debug("Loading Minimal Config %d\n");
+        print_debug("Loading Minimal Config\n");
         config = load_min_config(config_path);
     } else {
-        print_debug("Loading Full Config %d\n");
+        print_debug("Loading Full Config\n");
         config = load_config(config_path);
     }
     if(!config) {
