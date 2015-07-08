@@ -973,7 +973,7 @@ int
 delete_rules_by_gw(struct nl_sock* sock, List* list, uint32_t gw)
 {
     Litem *item;
-    print_debug("\n");
+    print_debug("List Size: %d\n", list_size(list));
     list_for_each(item, list){
         struct virtual_interface* iff = item->data;
         print_debug("Comparing: %zu and %zu\n", iff->gateway, gw);

@@ -165,7 +165,7 @@ int send_update(char* dev_address, char *broadcast_address, char *broadcast_dev_
 
         gw_dec += htonl(0x00000400);
         subnet_dec += htonl(0x00000400);
-        subnet_mask = subnet_dec & htonl(0xFFFFFF00);
+        subnet_mask = htonl(0xFFFFFF00);
 
         virt->address = subnet_dec;
         virt->netmask = subnet_mask;

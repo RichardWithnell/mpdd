@@ -782,6 +782,7 @@ delete_old_route(
         virt->netmask,
         virt->out->super.ifidx);
     delete_default_route(sock, virt);
+    delete_rule(sock, virt->address, virt->netmask, virt->table);
     list_remove(phy->virt_list, i);
 
 #ifndef DCE_NS3_FIX
