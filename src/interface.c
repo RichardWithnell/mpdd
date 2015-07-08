@@ -890,7 +890,7 @@ add_route(struct nl_sock* sock,
 int delete_route_from_physical(List* l, uint32_t route)
 {
     Litem *item;
-
+    print_debug("\n");
     list_for_each(item, l){
         struct physical_interface* iff = (struct physical_interface*)item->data;
 
@@ -973,10 +973,10 @@ int
 delete_rules_by_gw(struct nl_sock* sock, List* list, uint32_t gw)
 {
     Litem *item;
-
+    print_debug("\n");
     list_for_each(item, list){
         struct virtual_interface* iff = item->data;
-
+        print_debug("Comparing: %zu and %zu\n", iff->gateway, gw);
         if (iff->gateway == gw) {
             print_debug("delete rules with address: ");
             //print_ip(iff->address);
