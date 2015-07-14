@@ -86,13 +86,12 @@ uint32_t NumberOfSetBits(uint32_t i)
     return (uint32_t)((((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24);
 }
 
-#ifdef DCE_NS3_FIX
+#if defined(DCE_NS3_FIX) || defined(GATEWAY_IS_EXT)
 uint32_t get_ext_ip(uint32_t ip)
 {
     print_debug("Get external ip - DCE_NS3_FIX\n");
     return ip;
 }
-
 #else
 
 /********
