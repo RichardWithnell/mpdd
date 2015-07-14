@@ -86,7 +86,7 @@ uint32_t NumberOfSetBits(uint32_t i)
     return (uint32_t)((((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24);
 }
 /*Fix this define*/
-#if defined(DCE_NS3_FIX) || defined(GATEWAY_IS_EXT) || 1
+#if 1
 uint32_t get_ext_ip(uint32_t ip)
 {
     print_debug("Get external ip - DCE_NS3_FIX\n");
@@ -96,7 +96,7 @@ uint32_t get_ext_ip(uint32_t ip)
 
 /********
  *
- * TODO this blocks the thread if there is no IP address... probably the same
+ * TODO this blocks the thread if there is no IP address... will be the same
  * for DNS issues.
  */
 uint32_t get_ext_ip(uint32_t ip)
