@@ -38,6 +38,9 @@ TESTS = $(TEST_PATH)test_link_monitor
 
 all: mpdd
 
+install:
+	cp bin/$(ARCH)/mpdd /usr/bin/mpdd
+
 
 run_tests: $(TESTS)
 	@$(TEST_BIN)test_link_monitor || (echo "Test Link Monitor Failed $$?"; exit 1)
