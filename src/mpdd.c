@@ -32,7 +32,6 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-#include <unistd.h>
 
 #include "config.h"
 #include "debug.h"
@@ -126,7 +125,7 @@ static void* check_timeout(void* data)
                     delete_old_route(sock, virt->out, virt, phys_list, virt_list, i);
                     /*Add to event list*/
                     print_debug("Virt %s: timed out\n",
-                        ip_to_str(htonl(virt->address)));
+                        ip_to_str(ntohl(virt->address)));
                 }
             }
             i++;
@@ -534,7 +533,7 @@ main(int argc, char* argv[])
                            TODO make the external IP check continuous*/
                         if(virt->external_ip != 0) {
                             char* external_ip =
-                                ip_to_str(htonl(virt->external_ip));
+                                ip_to_str(ntohl(virt->external_ip));
                             print_debug(
                                 "Virtual Interface has Internet "
                                 "connection %s\n",
@@ -724,7 +723,7 @@ delete_old_route(
         print_debug("Interface Type: %u\n", phys->super.type);
         if(phys->super.type != PHYSICAL_TYPE){
             print_error("Virtual Interface in phys list?! %p\n", phys);
-            print_error("\tAddress: %s\n", ip_to_str(htonl(phys->address)));
+            print_error("\tAddress: %s\n", ip_to_str(ntohl(phys->address)));
             print_error("\tIff list: %p Iff List Ref: %p \nVirt List: %p Virt List Ref: %p\n", iff_list, ifflist, virt_list, virtlist);
             continue;
         }
@@ -807,7 +806,7 @@ delete_old_route(
     clock_gettime(CLOCK_REALTIME, &monotime);
     print_eval("DR:%s:%s:%lld.%.9ld\n",
                host_name,
-               ip_to_str(htonl(virt->external_ip)),
+               ip_to_str(ntohl(virt->external_ip)),
                (long long)monotime.tv_sec,
                (long)monotime.tv_nsec);
 #endif
@@ -851,12 +850,12 @@ delete_old_routes(
 
     pthread_mutex_lock(&(squeue.iff_list_lock));
 
-    print_debug("Get Interface For Update From: %s\n", ip_to_str(htonl(addr->sin_addr.s_addr)));
+    print_debug("Get Interface For Update From: %s\n", ip_to_str(ntohl(addr->sin_addr.s_addr)));
 
     phy = get_iff_network_update(addr->sin_addr.s_addr,
                                  iff_list);
     if(!phy){
-        print_error("Didn't find phy for address: %s\n", ip_to_str(htonl(addr->sin_addr.s_addr)));
+        print_error("Didn't find phy for address: %s\n", ip_to_str(ntohl(addr->sin_addr.s_addr)));
         pthread_mutex_unlock(&(squeue.iff_list_lock));
         return FAILURE;
     }
@@ -896,11 +895,11 @@ delete_old_routes(
             struct mpdentry* entry = (pkt->entry) + idx;
             int host_ip = 0;
 
-            host_ip = htonl((entry->netmask & entry->address) | htonl(host_id));
+            host_ip = ntohl((entry->netmask & entry->address) | ntohl(host_id));
 
             print_verb("Checking that address check came from correct sender\n");
-            print_verb("\tSender: %s\n", ip_to_str(htonl(virt->sender)));
-            print_verb("\tGateway: %s\n", ip_to_str(htonl(entry->gateway)));
+            print_verb("\tSender: %s\n", ip_to_str(ntohl(virt->sender)));
+            print_verb("\tGateway: %s\n", ip_to_str(ntohl(entry->gateway)));
             if(virt && virt->sender == entry->gateway && virt->address != host_ip) {
                 print_debug("Gateway for packet doesn't match virtual interface\n");
                 exists = 0;
@@ -952,7 +951,7 @@ handle_gateway_update(
     phy = get_iff_network_update(addr->sin_addr.s_addr,
                                  iff_list);
     if(!phy){
-        print_error("Didn't find phy for address: %s\n", ip_to_str(htonl(addr->sin_addr.s_addr)));
+        print_error("Didn't find phy for address: %s\n", ip_to_str(ntohl(addr->sin_addr.s_addr)));
         pthread_mutex_unlock(&(squeue.iff_list_lock));
         return FAILURE;
     }
@@ -977,12 +976,12 @@ handle_gateway_update(
         }
 
         /*check IP doesnt already exist;*/
-        host_ip = htonl((entry->netmask & entry->address) | htonl(host_id));
+        host_ip = ntohl((entry->netmask & entry->address) | ntohl(host_id));
 
-        print_debug("\tHost ID: %s\n", ip_to_str(htonl(host_id)));
-        print_debug("\tEntry Netmask: %s\n", ip_to_str(htonl(entry->netmask)));
-        print_debug("\tEntry Address: %s\n", ip_to_str(htonl(entry->address)));
-        print_debug("Checking Host IP Doesnt Exist: %s\n", ip_to_str(htonl(host_ip)));
+        print_debug("\tHost ID: %s\n", ip_to_str(ntohl(host_id)));
+        print_debug("\tEntry Netmask: %s\n", ip_to_str(ntohl(entry->netmask)));
+        print_debug("\tEntry Address: %s\n", ip_to_str(ntohl(entry->address)));
+        print_debug("Checking Host IP Doesnt Exist: %s\n", ip_to_str(ntohl(host_ip)));
 
         pthread_mutex_lock(&(squeue.iff_list_lock));
         list_for_each(pitem, iff_list){
@@ -1007,7 +1006,7 @@ handle_gateway_update(
                 if(temp_virt && temp_virt->address == host_ip) {
                     print_debug(
                         "Virtual address already exists, resetting timout\n");
-                    if(temp_virt->external_ip == htonl(entry->ext_ip)
+                    if(temp_virt->external_ip == ntohl(entry->ext_ip)
                        && phy == temp_virt->attach
                        && phy == temp_virt->out)
                     {
@@ -1019,7 +1018,7 @@ handle_gateway_update(
                     exists = 1;
                     break;
                 }
-                if(temp_virt->external_ip == htonl(entry->ext_ip)){
+                if(temp_virt->external_ip == ntohl(entry->ext_ip)){
                     //Add link as backup
                 }
             }
@@ -1052,20 +1051,20 @@ handle_gateway_update(
             return FAILURE;
         }
 
-        print_debug("External IP: %s\n", ip_to_str(htonl(entry->ext_ip)));
+        print_debug("External IP: %s\n", ip_to_str(ntohl(entry->ext_ip)));
 
-        v->gateway = htonl(entry->address);
+        v->gateway = ntohl(entry->address);
         v->sender = addr->sin_addr.s_addr;
         v->out = phy;
         v->attach = phy;
         v->address = host_ip;
-        v->netmask = htonl(entry->netmask);
+        v->netmask = ntohl(entry->netmask);
         v->depth = entry->depth + 1;
-        v->metric = entry->metric;
+        v->metric = ntohl(entry->metric);
 
         print_debug("ENTRY METRIC: %zu\n", entry->metric);
 
-        v->external_ip = htonl(entry->ext_ip);
+        v->external_ip = ntohl(entry->ext_ip);
         v->last_update = LINK_TIMEOUT;
         v->type_gateway = 1;
         print_debug("Find a free routing table\n");
@@ -1081,7 +1080,7 @@ handle_gateway_update(
         print_verb("Add the new virtual interface to the phy list\n");
         item->data = (void*)v;
         print_verb("Add address to the interface\n");
-        print_verb("Virt IP: %s\n", ip_to_str(htonl(v->address)));
+        print_verb("Virt IP: %s\n", ip_to_str(ntohl(v->address)));
         print_debug("Physical Virt List: %p\n", phy->virt_list);
 
         pthread_mutex_lock(&(squeue.iff_list_lock));
@@ -1181,7 +1180,7 @@ handle_gateway_update(
         clock_gettime(CLOCK_REALTIME, &monotime);
         print_eval("NR:%s:%s:%s:%lld.%.9ld\n",
                    host_name,
-                   ip_to_str(htonl(v->external_ip)),
+                   ip_to_str(ntohl(v->external_ip)),
                    v->out->super.ifname,
                    (long long)monotime.tv_sec,
                    (long)monotime.tv_nsec);
