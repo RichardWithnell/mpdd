@@ -280,6 +280,10 @@ main(int argc, char* argv[])
         {0, 0, 0, 0}
     };
 
+    print_debug("TEST HTONL: %lu %lu\n", 0x00000001, htonl(0x00000001));
+    print_debug("TEST NTOHL: %lu %lu\n", 0x00000001, htonl(0x00000001));
+
+
     srand(time(0));
 
     while(1) {
@@ -895,11 +899,11 @@ delete_old_routes(
             struct mpdentry* entry = (pkt->entry) + idx;
             int host_ip = 0;
 
-            host_ip = ntohl((entry->netmask & entry->address) | ntohl(host_id));
+            host_ip = ntohl((entry->netmask & entry->address) | htonl(host_id));
 
             print_verb("Checking that address check came from correct sender\n");
             print_verb("\tSender: %s\n", ip_to_str(ntohl(virt->sender)));
-            print_verb("\tGateway: %s\n", ip_to_str(ntohl(entry->gateway)));
+            print_verb("\tGateway: %s\n", ip_to_str(entry->gateway));
             if(virt && virt->sender == entry->gateway && virt->address != host_ip) {
                 print_debug("Gateway for packet doesn't match virtual interface\n");
                 exists = 0;
@@ -976,12 +980,12 @@ handle_gateway_update(
         }
 
         /*check IP doesnt already exist;*/
-        host_ip = ntohl((entry->netmask & entry->address) | ntohl(host_id));
+        host_ip = ntohl((entry->netmask & entry->address) | htonl(host_id));
 
         print_debug("\tHost ID: %s\n", ip_to_str(ntohl(host_id)));
-        print_debug("\tEntry Netmask: %s\n", ip_to_str(ntohl(entry->netmask)));
-        print_debug("\tEntry Address: %s\n", ip_to_str(ntohl(entry->address)));
-        print_debug("Checking Host IP Doesnt Exist: %s\n", ip_to_str(ntohl(host_ip)));
+        print_debug("\tEntry Netmask: %s\n", ip_to_str(entry->netmask));
+        print_debug("\tEntry Address: %s\n", ip_to_str(entry->address));
+        print_debug("Checking Host IP Doesnt Exist: %s\n", ip_to_str(host_ip));
 
         pthread_mutex_lock(&(squeue.iff_list_lock));
         list_for_each(pitem, iff_list){
@@ -1051,7 +1055,7 @@ handle_gateway_update(
             return FAILURE;
         }
 
-        print_debug("External IP: %s\n", ip_to_str(ntohl(entry->ext_ip)));
+        print_debug("External IP: %s\n", ip_to_str(entry->ext_ip));
 
         v->gateway = ntohl(entry->address);
         v->sender = addr->sin_addr.s_addr;

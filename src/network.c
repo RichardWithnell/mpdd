@@ -573,7 +573,7 @@ void print_packet(struct mpdpacket* pkt)
             printf("\tGateway: %s\n", ip_to_str(e->gateway));
             printf("\tExternal: %s\n", ip_to_str(e->ext_ip));
             printf("\tDepth: %d\n", e->depth);
-            printf("\tMetric: %d\n", e->metric);
+            printf("\tMetric: %d\n", htonl(e->metric));
             printf("\tType: %d\n", e->type);
         }
         printf("\n");
@@ -767,7 +767,7 @@ create_update_packet(struct physical_interface* iff, struct mpdpacket** packet)
             buffer_size += sizeof(struct mpdentry);
             e = (pkt->entry) + j;
             print_debug("Entry (%p) - j(%d) pkt(%p)\n", e, j, pkt->entry);
-            e->address = (virt->address);
+            e->address = htonl(virt->address);
             e->netmask = htonl(virt->netmask);
             e->gateway = htonl(virt->attach->address);
             e->metric = htonl(virt->metric);
