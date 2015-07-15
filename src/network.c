@@ -767,40 +767,16 @@ create_update_packet(struct physical_interface* iff, struct mpdpacket** packet)
             buffer_size += sizeof(struct mpdentry);
             e = (pkt->entry) + j;
             print_debug("Entry (%p) - j(%d) pkt(%p)\n", e, j, pkt->entry);
-
-            if (BYTE_ORDER == LITTLE_ENDIAN) {
-                e->address = htonl(virt->address);
-                e->netmask = htonl(virt->netmask);
-                e->gateway = htonl(virt->attach->address);
-                e->ext_ip = htonl(virt->external_ip);
-                e->metric = htonl(virt->metric);
-            } else if (BYTE_ORDER == BIG_ENDIAN) {
-                e->address = virt->address;
-                e->netmask = virt->netmask;
-                e->gateway = virt->attach->address;
-                e->ext_ip = virt->external_ip;
-                e->metric = virt->metric;
-            } else {
-                e->address = htonl(virt->address);
-                e->netmask = htonl(virt->netmask);
-                e->gateway = htonl(virt->attach->address);
-                e->ext_ip = htonl(virt->external_ip);
-                e->metric = htonl(virt->metric);
-            }
-
-            e->depth = virt->depth;
-            e->type = ENTRY_TYPE_ADD;
+            e->address = htonl(virt->address);
+            e->netmask = htonl(virt->netmask);
+            e->gateway = htonl(virt->attach->address);
+            e->metric = virt->metric;
+            e->ext_ip = htonl(virt->external_ip);
             //e->mp_mode = get_net_mp_const(iff->ifflags);
             //e->mp_mode= 0;
-
-            if(BYTE_ORDER == LITTLE_ENDIAN){
-                print_debug("Entry Address: %s\n", ip_to_str(htonl(e->address)));
-            } else if(BYTE_ORDER == BIG_ENDIAN){
-                print_debug("Entry Address: %s\n", ip_to_str(e->address));
-            } else {
-                print_debug("Entry Address: %s\n", ip_to_str(htonl(e->address)));
-            }
-
+            e->depth = virt->depth;
+            e->type = ENTRY_TYPE_ADD;
+            print_debug("Entry Address: %s\n", ip_to_str(htonl(e->address)));
             j++;
         } else {
             print_error("found null gateway\n");

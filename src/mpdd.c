@@ -33,7 +33,6 @@
 #include <time.h>
 #include <unistd.h>
 #include <unistd.h>
-#include <endian.h>
 
 #include "config.h"
 #include "debug.h"
@@ -897,41 +896,14 @@ delete_old_routes(
             struct mpdentry* entry = (pkt->entry) + idx;
             int host_ip = 0;
 
-            if (BYTE_ORDER == LITTLE_ENDIAN) {
-                host_ip = htonl((entry->netmask & entry->address) | htonl(host_id));
-            } else if (BYTE_ORDER == BIG_ENDIAN) {
-                host_ip = (entry->netmask & entry->address) | htonl(host_id);
-            } else {
-                host_ip = htonl((entry->netmask & entry->address) | htonl(host_id));
-            }
-
+            host_ip = htonl((entry->netmask & entry->address) | htonl(host_id));
 
             print_verb("Checking that address check came from correct sender\n");
             print_verb("\tSender: %s\n", ip_to_str(htonl(virt->sender)));
-            if (BYTE_ORDER == LITTLE_ENDIAN) {
-                print_verb("\tGateway: %s\n", ip_to_str(htonl(entry->gateway)));
-            } else if (BYTE_ORDER == BIG_ENDIAN) {
-                print_verb("\tGateway: %s\n", ip_to_str(entry->gateway));
-            } else {
-                print_verb("\tGateway: %s\n", ip_to_str(htonl(entry->gateway)));
-            }
-
-
-            if (BYTE_ORDER == LITTLE_ENDIAN) {
-                if(virt && virt->sender == htonl(entry->gateway) && virt->address != host_ip) {
-                    print_debug("Gateway for packet doesn't match virtual interface\n");
-                    exists = 0;
-                }
-            } else if (BYTE_ORDER == BIG_ENDIAN) {
-                if(virt && virt->sender == entry->gateway && virt->address != host_ip) {
-                    print_debug("Gateway for packet doesn't match virtual interface\n");
-                    exists = 0;
-                }
-            } else {
-                if(virt && virt->sender == htonl(entry->gateway) && virt->address != host_ip) {
-                    print_debug("Gateway for packet doesn't match virtual interface\n");
-                    exists = 0;
-                }
+            print_verb("\tGateway: %s\n", ip_to_str(htonl(entry->gateway)));
+            if(virt && virt->sender == entry->gateway && virt->address != host_ip) {
+                print_debug("Gateway for packet doesn't match virtual interface\n");
+                exists = 0;
             }
 
             if(virt && virt->address == host_ip) {
@@ -1005,30 +977,12 @@ handle_gateway_update(
         }
 
         /*check IP doesnt already exist;*/
-        if(BYTE_ORDER == LITTLE_ENDIAN){
-            host_ip = htonl((entry->netmask & entry->address) | htonl(host_id));
-        } else if (BYTE_ORDER == BIG_ENDIAN) {
-            host_ip = (entry->netmask & entry->address) | htonl(host_id);
-        } else {
-            host_ip = htonl((entry->netmask & entry->address) | htonl(host_id));
-        }
+        host_ip = htonl((entry->netmask & entry->address) | htonl(host_id));
 
         print_debug("\tHost ID: %s\n", ip_to_str(htonl(host_id)));
-        if(BYTE_ORDER == LITTLE_ENDIAN){
-            print_debug("\tEntry Netmask: %s\n", ip_to_str(htonl(entry->netmask)));
-            print_debug("\tEntry Address: %s\n", ip_to_str(htonl(entry->address)));
-            print_debug("Checking Host IP Doesnt Exist: %s\n", ip_to_str(htonl(host_ip)));
-        } else if (BYTE_ORDER == BIG_ENDIAN) {
-            print_debug("\tEntry Netmask: %s\n", ip_to_str(entry->netmask));
-            print_debug("\tEntry Address: %s\n", ip_to_str(entry->address));
-            print_debug("Checking Host IP Doesnt Exist: %s\n", ip_to_str(host_ip));
-        } else {
-            print_debug("\tEntry Netmask: %s\n", ip_to_str(htonl(entry->netmask)));
-            print_debug("\tEntry Address: %s\n", ip_to_str(htonl(entry->address)));
-            print_debug("Checking Host IP Doesnt Exist: %s\n", ip_to_str(htonl(host_ip)));
-        }
-
-
+        print_debug("\tEntry Netmask: %s\n", ip_to_str(htonl(entry->netmask)));
+        print_debug("\tEntry Address: %s\n", ip_to_str(htonl(entry->address)));
+        print_debug("Checking Host IP Doesnt Exist: %s\n", ip_to_str(htonl(host_ip)));
 
         pthread_mutex_lock(&(squeue.iff_list_lock));
         list_for_each(pitem, iff_list){
@@ -1049,23 +1003,11 @@ handle_gateway_update(
 
         if(virt_list) {
             list_for_each(vitem, virt_list){
-                uint32_t eip = 0;
-
                 temp_virt = (struct virtual_interface*)vitem->data;
-
-                if(BYTE_ORDER == LITTLE_ENDIAN) {
-                    eip = htonl(entry->ext_ip);
-                } else if (BYTE_ORDER == BIG_ENDIAN) {
-                    eip = entry->ext_ip;
-                } else {
-                    eip = htonl(entry->ext_ip);
-                }
-
                 if(temp_virt && temp_virt->address == host_ip) {
                     print_debug(
                         "Virtual address already exists, resetting timout\n");
-                    
-                    if(temp_virt->external_ip == eip
+                    if(temp_virt->external_ip == htonl(entry->ext_ip)
                        && phy == temp_virt->attach
                        && phy == temp_virt->out)
                     {
@@ -1077,7 +1019,7 @@ handle_gateway_update(
                     exists = 1;
                     break;
                 }
-                if(temp_virt->external_ip == eip){
+                if(temp_virt->external_ip == htonl(entry->ext_ip)){
                     //Add link as backup
                 }
             }
@@ -1110,39 +1052,22 @@ handle_gateway_update(
             return FAILURE;
         }
 
+        print_debug("External IP: %s\n", ip_to_str(htonl(entry->ext_ip)));
 
-        if (BYTE_ORDER == LITTLE_ENDIAN) {
-            print_debug("External IP: %s\n", ip_to_str(htonl(entry->ext_ip)));
-            v->gateway = htonl(entry->address);
-            v->netmask = htonl(entry->netmask);
-            v->external_ip = htonl(entry->ext_ip);
-            v->metric = htonl(entry->metric);
-            print_debug("ENTRY METRIC: %zu\n", htonl(entry->metric));
-        } else if (BYTE_ORDER == BIG_ENDIAN){
-            print_debug("External IP: %s\n", ip_to_str(entry->ext_ip));
-            v->gateway = entry->address;
-            v->netmask = entry->netmask;
-            v->external_ip = entry->ext_ip;
-            v->metric = entry->metric;
-            print_debug("ENTRY METRIC: %zu\n", entry->metric);
-        } else {
-            print_debug("External IP: %s\n", ip_to_str(htonl(entry->ext_ip)));
-            v->gateway = htonl(entry->address);
-            v->netmask = htonl(entry->netmask);
-            v->external_ip = htonl(entry->ext_ip);
-            v->metric = htonl(entry->metric);
-            print_debug("ENTRY METRIC: %zu\n", htonl(entry->metric));
-        }
-
+        v->gateway = htonl(entry->address);
         v->sender = addr->sin_addr.s_addr;
         v->out = phy;
         v->attach = phy;
         v->address = host_ip;
+        v->netmask = htonl(entry->netmask);
         v->depth = entry->depth + 1;
+        v->metric = entry->metric;
 
+        print_debug("ENTRY METRIC: %zu\n", entry->metric);
+
+        v->external_ip = htonl(entry->ext_ip);
         v->last_update = LINK_TIMEOUT;
         v->type_gateway = 1;
-
         print_debug("Find a free routing table\n");
         v->table = free_table;
         print_debug("\tAssigned - %u\n", v->table);
@@ -1233,27 +1158,11 @@ handle_gateway_update(
                                     phy->super.ifidx);
             print_verb("Found free metric: %d\n", find_metric);
 
-            if(BYTE_ORDER == LITTLE_ENDIAN){
-                res = add_default_route(sock,
-                                entry->address,
-                                RT_TABLE_MAIN,
-                                phy->super.ifidx,
-                                find_metric);
-            } else if(BYTE_ORDER == BIG_ENDIAN){
-                res = add_default_route(sock,
-                                htonl(entry->address),
-                                RT_TABLE_MAIN,
-                                phy->super.ifidx,
-                                find_metric);
-            } else {
-                res = add_default_route(sock,
-                                entry->address,
-                                RT_TABLE_MAIN,
-                                phy->super.ifidx,
-                                find_metric);
-            }
-
-
+            res = add_default_route(sock,
+                                    entry->address,
+                                    RT_TABLE_MAIN,
+                                    phy->super.ifidx,
+                                    find_metric);
             if(res < 0){
                 print_error("Failed to add default route: %d\n", res);
                 pthread_mutex_unlock(&(squeue.iff_list_lock));
