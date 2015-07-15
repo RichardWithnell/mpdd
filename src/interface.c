@@ -1003,8 +1003,8 @@ int delete_virtual_by_gw(List* list, uint32_t gw)
         print_debug("IDX: %d\n", i);
         struct virtual_interface* iff = (list_get(list, i))->data;
 
-        print_debug("Virtual Gateway: %s\n", ip_to_str(iff->gateway));
-        print_debug("Actual Gateway: %s\n", ip_to_str(gw));
+        print_debug("Virtual Gateway: %s\n", ip_to_str(htonl(iff->gateway)));
+        print_debug("Actual Gateway: %s\n", ip_to_str(htonl(gw)));
         if (iff->gateway == gw) {
             Litem* tmpitem = list_remove(list, i);
 
@@ -1058,14 +1058,14 @@ int delete_virtual_by_phy_addr(List* list, uint32_t addr)
         print_debug("IDX: %d\n", i);
         struct virtual_interface* iff = (list_get(list, i))->data;
 
-        print_debug("Actual Gateway: %s\n", ip_to_str(addr));
+        print_debug("Actual Gateway: %s\n", ip_to_str(htonl(addr)));
         if (iff->attach->address == addr) {
             print_debug("Removing Attached Virt: %s\n",
-                        ip_to_str(iff->attach->address));
+                        ip_to_str(htonl(iff->attach->address)));
             list_remove(list, i);
         } else if (iff->out->address == addr) {
             print_debug("Removing Outgoing Virt: %s\n",
-                        ip_to_str(iff->out->address));
+                        ip_to_str(htonl(iff->out->address)));
             list_remove(list, i);
         }
         free(iff);
@@ -1151,7 +1151,7 @@ delete_route(
     gw = rtnl_route_nh_get_gateway(nexthop);
     binary_gw = *(uint32_t*)nl_addr_get_binary_addr(gw);
 
-    print_debug("Delete Route: %s\n", ip_to_str(binary_gw));
+    print_debug("Delete Route: %s\n", ip_to_str(htonl(binary_gw)));
 
     delete_route_from_physical(iff_list, binary_gw);
     delete_rules_by_gw(sock, virt_list, binary_gw);
@@ -1674,14 +1674,14 @@ create_alias(struct nl_sock* sock,
         v->external_ip = ((struct virtual_interface*)p)->external_ip;
         v->metric = ((struct virtual_interface*)p)->metric;
         print_debug("Assigning Ext IP: %s from virt\n",
-                    ip_to_str(((struct virtual_interface*)p)->external_ip));
+                    ip_to_str(htonl(((struct virtual_interface*)p)->external_ip)));
     } else {
         v->gateway = ((struct physical_interface*)p)->gateway;
         v->out = (struct physical_interface*)p;
         v->external_ip = ((struct physical_interface*)p)->external_ip;
         v->metric = ((struct physical_interface*)p)->metric;
         print_debug("Assigning Ext IP: %s from phys\n",
-                    ip_to_str(((struct physical_interface*)p)->external_ip));
+                    ip_to_str(htonl(((struct physical_interface*)p)->external_ip)));
     }
     v->attach = iff;
 
@@ -2024,7 +2024,7 @@ add_default_route(
     int ret = 0;
     uint32_t gateway = htonl(ip);
 
-    print_debug("Add default route - gateway: %s\n", ip_to_str(gateway));
+    print_debug("Add default route - gateway: %s\n", ip_to_str(htonl(gateway)));
 
     if (!(route = rtnl_route_alloc())) {
         perror("add_default_route() - route alloc failed");
@@ -2059,7 +2059,7 @@ add_default_route(
         print_debug("Failed to set destination\n");
     }
 
-    print_debug("Building gateway: %s\n", ip_to_str(gateway));
+    print_debug("Building gateway: %s\n", ip_to_str(htonl(gateway)));
     gw = nl_addr_build(AF_INET, &gateway, 4);
     print_debug("Build address - gw\n");
 

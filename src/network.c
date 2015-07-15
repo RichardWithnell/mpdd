@@ -568,12 +568,12 @@ void print_packet(struct mpdpacket* pkt)
             struct mpdentry* e;
             e = (pkt->entry) + i;
             printf("Entry:\n");
-            printf("\tAddress: %s\n", ip_to_str(e->address));
-            printf("\tNetmask: %s\n", ip_to_str(e->netmask));
-            printf("\tGateway: %s\n", ip_to_str(e->gateway));
-            printf("\tExternal: %s\n", ip_to_str(e->ext_ip));
+            printf("\tAddress: %s\n", ip_to_str(htonl(e->address)));
+            printf("\tNetmask: %s\n", ip_to_str(htonl(e->netmask)));
+            printf("\tGateway: %s\n", ip_to_str(htonl(e->gateway)));
+            printf("\tExternal: %s\n", ip_to_str(htonl(e->ext_ip)));
             printf("\tDepth: %d\n", e->depth);
-            printf("\tMetric: %d\n", e->metric);
+            printf("\tMetric: %d\n", htonl(e->metric));
             printf("\tType: %d\n", e->type);
         }
         printf("\n");
@@ -776,7 +776,7 @@ create_update_packet(struct physical_interface* iff, struct mpdpacket** packet)
             //e->mp_mode= 0;
             e->depth = virt->depth;
             e->type = ENTRY_TYPE_ADD;
-            print_debug("Entry Address: %s\n", ip_to_str(e->address));
+            print_debug("Entry Address: %s\n", ip_to_str(htonl(e->address)));
             j++;
         } else {
             print_error("found null gateway\n");
