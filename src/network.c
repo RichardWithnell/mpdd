@@ -437,7 +437,7 @@ do_broadcast(struct physical_interface* i,
         return FAILURE;
     } else {
         print_debug("Sent %d bytes to %s \n", sent,
-                    ip_to_str(htonl((unsigned int)i->saddr.sin_addr.s_addr)));
+                    ip_to_str(ntohl((unsigned int)i->saddr.sin_addr.s_addr)));
     }
 
     return sent;
@@ -515,7 +515,7 @@ send_update_broadcast(List* iff_list, int sock)
             clock_gettime(CLOCK_REALTIME, &monotime);
             print_eval("SU:%s:%s:%lld.%.9ld\n",
                 host_name,
-                ip_to_str(htonl(iff->address)),
+                ip_to_str(ntohl(iff->address)),
                 (long long)monotime.tv_sec,
                 (long)monotime.tv_nsec);
             #endif
@@ -767,16 +767,16 @@ create_update_packet(struct physical_interface* iff, struct mpdpacket** packet)
             buffer_size += sizeof(struct mpdentry);
             e = (pkt->entry) + j;
             print_debug("Entry (%p) - j(%d) pkt(%p)\n", e, j, pkt->entry);
-            e->address = htonl(virt->address);
+            e->address = (virt->address);
             e->netmask = htonl(virt->netmask);
             e->gateway = htonl(virt->attach->address);
-            e->metric = virt->metric;
+            e->metric = htonl(virt->metric);
             e->ext_ip = htonl(virt->external_ip);
             //e->mp_mode = get_net_mp_const(iff->ifflags);
             //e->mp_mode= 0;
             e->depth = virt->depth;
             e->type = ENTRY_TYPE_ADD;
-            print_debug("Entry Address: %s\n", ip_to_str(htonl(e->address)));
+            print_debug("Entry Address: %s\n", ip_to_str(ntohl(e->address)));
             j++;
         } else {
             print_error("found null gateway\n");
