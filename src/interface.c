@@ -1729,9 +1729,20 @@ create_aliases_for_gw(
         struct physical_interface* iff =
             (struct physical_interface*)item->data;
 
+
         if ((struct interface*)iff == (struct interface*)p) {
             continue;
         }
+
+        if(p->type == VIRTUAL_TYPE){
+            struct virtual_interface *virt = (struct virtual_interface*)p;
+            if(virt->attach == iff && virt->out == iff){
+                continue;
+            }
+        }
+
+
+
 
         if (iff->diss) {
             create_alias(sock, iff, p, virt_list);
@@ -2295,7 +2306,6 @@ find_free_subnet(struct nl_sock* sock)
     rtnl_addr_alloc_cache(sock, &cache);
 
     filter = rtnl_addr_alloc();
-    srand(time(0));
 
     rtnl_addr_set_family(filter, AF_INET);
 
@@ -2521,6 +2531,7 @@ struct virtual_interface* init_virt(void)
     v->super.type = VIRTUAL_TYPE;
     v->attach = (struct physical_interface*)0;
     v->out = (struct physical_interface*)0;
+    v->sender = 0;
     v->external_ip = 0;
     v->address = 0;
     v->netmask = 0;

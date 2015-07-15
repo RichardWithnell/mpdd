@@ -113,6 +113,7 @@ struct virtual_interface
     uint32_t gateway;
     uint32_t external_ip;
     uint32_t metric;
+    uint32_t sender;
     uint8_t depth;
     uint8_t flags;
     uint8_t table;

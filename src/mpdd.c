@@ -44,15 +44,15 @@
 #include "util.h"
 #include "resource_interface.h"
 
-#define ENABLE_HEARTBEAT 0
-#define ENABLE_LINK_TIMEOUT 0
+#define ENABLE_HEARTBEAT 1
+#define ENABLE_LINK_TIMEOUT 1
 #define BACKUP_LINK_SUPPORT 1
 #define ENABLE_LOAD_BALANCE 0
 
 static const int MAX_DEPTH = 255;
-static const int HEART_BEAT_TIME = 20;
+static const int HEART_BEAT_TIME = 10;
 static const int LINK_CHECK_TIME = 2;
-static const int LINK_TIMEOUT = 100;
+static const int LINK_TIMEOUT = 60;
 
 static const char DEF_CONFIG_FILE[32] = "/etc/mpd/mpdd_simple.conf";
 
@@ -280,6 +280,8 @@ main(int argc, char* argv[])
         {"minimal-conf", required_argument, 0, 'C'},
         {0, 0, 0, 0}
     };
+
+    srand(time(0));
 
     while(1) {
         int option_index = 0;
@@ -709,25 +711,36 @@ delete_old_route(
   struct nl_sock *sock,
   struct physical_interface *phy,
   struct virtual_interface* virt,
-  List *iff_list,
-  List *virt_list,
+  List *ifflist,
+  List *virtlist,
   int i)
 {
     /*Remove associated subnets*/
     Litem *item;
     Litem *pitem;
     print_debug("Loop through the physical interfaces\n");
-    list_for_each(pitem, iff_list){
+    list_for_each(pitem, ifflist){
         struct physical_interface* phys = (struct physical_interface*)pitem->data;
+        print_debug("Interface Type: %u\n", phys->super.type);
+        if(phys->super.type != PHYSICAL_TYPE){
+            print_error("Virtual Interface in phys list?! %p\n", phys);
+            print_error("\tAddress: %s\n", ip_to_str(htonl(phys->address)));
+            print_error("\tIff list: %p Iff List Ref: %p \nVirt List: %p Virt List Ref: %p\n", iff_list, ifflist, virt_list, virtlist);
+            continue;
+        }
         if(phys->diss) {
             int j = 0;
-            Litem *pvitem;
+            Litem *pvitem = (Litem*)0;
             print_debug(
                 "Loop through the virtual interfaces for phy\n");
             if(!phys->virt_list){
                 print_error("Virt list not created\n");
                 continue;
+            } else {
+                print_verb("Phys virt_list created: %p\n", phys->virt_list);
             }
+            print_verb("Loop through virt list\n");
+
             list_for_each(pvitem, phys->virt_list){
                 if(virt->table == ((struct virtual_interface*)
                                    pvitem->data)->table) {
@@ -758,13 +771,13 @@ delete_old_route(
             }
             j = 0;
             /*TODO: Unbodge this. It's getting ridiculous.*/
-            list_for_each(pvitem, virt_list){
+            list_for_each(pvitem, virtlist){
                 if(virt->table == ((struct virtual_interface*)
                                    pvitem->data)->table) {
                     print_debug("Loop thorugh the virtual \
                          interface list\n");
 
-                    item = list_remove(virt_list, j);
+                    item = list_remove(virtlist, j);
                     break;
                 }
                 j++;
@@ -878,12 +891,20 @@ delete_old_routes(
         }
 
         print_verb("Loop Through Packet\n");
-        exists = 0;
+        exists = 1;
         for(idx = 0; idx < pkt->header->num; idx++) {
             struct mpdentry* entry = (pkt->entry) + idx;
             int host_ip = 0;
 
             host_ip = htonl((entry->netmask & entry->address) | htonl(host_id));
+
+            print_verb("Checking that address check came from correct sender\n");
+            print_verb("\tSender: %s\n", ip_to_str(htonl(virt->sender)));
+            print_verb("\tGateway: %s\n", ip_to_str(htonl(entry->gateway)));
+            if(virt && virt->sender == entry->gateway && virt->address != host_ip) {
+                print_debug("Gateway for packet doesn't match virtual interface\n");
+                exists = 0;
+            }
 
             if(virt && virt->address == host_ip) {
                 print_debug("Address already exists\n");
@@ -894,7 +915,7 @@ delete_old_routes(
 
         if(!exists) {
             print_debug("Delete old route\n");
-            delete_old_route(sock, phy, virt, virt_list, iff_list, i);
+            delete_old_route(sock, phy, virt, iff_list, virt_list, i);
         }
         i++;
     }
@@ -1034,6 +1055,7 @@ handle_gateway_update(
         print_debug("External IP: %s\n", ip_to_str(htonl(entry->ext_ip)));
 
         v->gateway = htonl(entry->address);
+        v->sender = addr->sin_addr.s_addr;
         v->out = phy;
         v->attach = phy;
         v->address = host_ip;

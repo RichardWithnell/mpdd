@@ -771,7 +771,6 @@ create_update_packet(struct physical_interface* iff, struct mpdpacket** packet)
             e->netmask = htonl(virt->netmask);
             e->gateway = htonl(virt->attach->address);
             e->metric = virt->metric;
-            //e->gateway = 0;
             e->ext_ip = htonl(virt->external_ip);
             //e->mp_mode = get_net_mp_const(iff->ifflags);
             //e->mp_mode= 0;
