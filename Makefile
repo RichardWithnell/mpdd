@@ -7,7 +7,7 @@ INC_PATH = /usr/include/libnl3
 LDFLAGS += -lnl-3 -lnl-route-3 -lrt -lmnl
 CC=gcc
 BEAUTIFY=uncrustify ~/.uncrustify.cfg
-CFLAGS+= -g -Wall -DUSE_LIBCONFIG -DGATEWAY_IS_EXT
+CFLAGS+= -g -Wall -DUSE_LIBCONFIG -DGATEWAY_IS_EXT -D__USE_POSIX
 
 ifndef ARCH
 	ARCH:=$(shell uname -m)
