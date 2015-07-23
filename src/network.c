@@ -221,7 +221,7 @@ void* recv_broadcast(struct send_queue* squeue)
 
                 deserialize_packet(buff, &pkt);
 
-                print_packet(pkt);
+                //print_packet(pkt);
 
                 if (!pkt) {
                     print_debug("Failed to deserialize packet\n");
@@ -528,11 +528,12 @@ send_update_broadcast(List* iff_list, int sock)
             len = serialize_packet(packet, &data);
             print_debug("Created serialized packet: length %d bytes\n", len);
 
+            /*
             struct mpdpacket* test_packet;
             deserialize_packet(data, &test_packet);
             print_packet(test_packet);
             free(test_packet);
-
+            */
             free(packet);
 
             memset(&(iff->saddr), '0', sizeof(struct sockaddr_in));
@@ -568,12 +569,12 @@ void print_packet(struct mpdpacket* pkt)
             struct mpdentry* e;
             e = (pkt->entry) + i;
             printf("Entry:\n");
-            printf("\tAddress: %s\n", ip_to_str(e->address));
-            printf("\tNetmask: %s\n", ip_to_str(e->netmask));
-            printf("\tGateway: %s\n", ip_to_str(e->gateway));
-            printf("\tExternal: %s\n", ip_to_str(e->ext_ip));
+            printf("\tAddress: %s\n", ip_to_str(ntohl(e->address)));
+            printf("\tNetmask: %s\n", ip_to_str(ntohl(e->netmask)));
+            printf("\tGateway: %s\n", ip_to_str(ntohl(e->gateway)));
+            printf("\tExternal: %s\n", ip_to_str(ntohl(e->ext_ip)));
             printf("\tDepth: %d\n", e->depth);
-            printf("\tMetric: %d\n", htonl(e->metric));
+            printf("\tMetric: %d\n", ntohl(e->metric));
             printf("\tType: %d\n", e->type);
         }
         printf("\n");
@@ -767,11 +768,11 @@ create_update_packet(struct physical_interface* iff, struct mpdpacket** packet)
             buffer_size += sizeof(struct mpdentry);
             e = (pkt->entry) + j;
             print_debug("Entry (%p) - j(%d) pkt(%p)\n", e, j, pkt->entry);
-            e->address = htonl(virt->address);
-            e->netmask = htonl(virt->netmask);
-            e->gateway = htonl(virt->attach->address);
+            e->address = virt->address;
+            e->netmask = virt->netmask;
+            e->gateway = virt->attach->address;
             e->metric = htonl(virt->metric);
-            e->ext_ip = htonl(virt->external_ip);
+            e->ext_ip = virt->external_ip;
             //e->mp_mode = get_net_mp_const(iff->ifflags);
             //e->mp_mode= 0;
             e->depth = virt->depth;

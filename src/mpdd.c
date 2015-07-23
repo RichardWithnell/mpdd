@@ -155,6 +155,7 @@ static void* flag_heartbeat(void* data)
         /* Take appropriate actions for signal delivery */
         pthread_mutex_lock(&squeue->flag_lock);
         squeue->flag = 1;
+        print_verb("Send Heartbeat\n");
         pthread_mutex_unlock(&squeue->flag_lock);
 
         sleep(HEART_BEAT_TIME);
@@ -899,11 +900,11 @@ delete_old_routes(
             struct mpdentry* entry = (pkt->entry) + idx;
             int host_ip = 0;
 
-            host_ip = ntohl((entry->netmask & entry->address) | htonl(host_id));
+            host_ip = (entry->netmask & entry->address) | host_id;
 
             print_verb("Checking that address check came from correct sender\n");
             print_verb("\tSender: %s\n", ip_to_str(ntohl(virt->sender)));
-            print_verb("\tGateway: %s\n", ip_to_str(entry->gateway));
+            print_verb("\tGateway: %s\n", ip_to_str(ntohl(entry->gateway)));
             if(virt && virt->sender == entry->gateway && virt->address != host_ip) {
                 print_debug("Gateway for packet doesn't match virtual interface\n");
                 exists = 0;
@@ -980,12 +981,12 @@ handle_gateway_update(
         }
 
         /*check IP doesnt already exist;*/
-        host_ip = ntohl((entry->netmask & entry->address) | htonl(host_id));
+        host_ip = (entry->netmask & entry->address) | host_id;
 
         print_debug("\tHost ID: %s\n", ip_to_str(ntohl(host_id)));
-        print_debug("\tEntry Netmask: %s\n", ip_to_str(entry->netmask));
-        print_debug("\tEntry Address: %s\n", ip_to_str(entry->address));
-        print_debug("Checking Host IP Doesnt Exist: %s\n", ip_to_str(host_ip));
+        print_debug("\tEntry Netmask: %s\n", ip_to_str(ntohl(entry->netmask)));
+        print_debug("\tEntry Address: %s\n", ip_to_str(ntohl(entry->address)));
+        print_debug("Checking Host IP Doesnt Exist: %s\n", ip_to_str(ntohl(host_ip)));
 
         pthread_mutex_lock(&(squeue.iff_list_lock));
         list_for_each(pitem, iff_list){
@@ -1010,7 +1011,7 @@ handle_gateway_update(
                 if(temp_virt && temp_virt->address == host_ip) {
                     print_debug(
                         "Virtual address already exists, resetting timout\n");
-                    if(temp_virt->external_ip == ntohl(entry->ext_ip)
+                    if(temp_virt->external_ip == entry->ext_ip
                        && phy == temp_virt->attach
                        && phy == temp_virt->out)
                     {
@@ -1022,7 +1023,7 @@ handle_gateway_update(
                     exists = 1;
                     break;
                 }
-                if(temp_virt->external_ip == ntohl(entry->ext_ip)){
+                if(temp_virt->external_ip == entry->ext_ip){
                     //Add link as backup
                 }
             }
@@ -1057,18 +1058,18 @@ handle_gateway_update(
 
         print_debug("External IP: %s\n", ip_to_str(entry->ext_ip));
 
-        v->gateway = ntohl(entry->address);
+        v->gateway = entry->address;
         v->sender = addr->sin_addr.s_addr;
         v->out = phy;
         v->attach = phy;
         v->address = host_ip;
-        v->netmask = ntohl(entry->netmask);
+        v->netmask = entry->netmask;
         v->depth = entry->depth + 1;
         v->metric = ntohl(entry->metric);
 
-        print_debug("ENTRY METRIC: %zu\n", entry->metric);
+        print_debug("ENTRY METRIC: %zu\n", ntohl(entry->metric));
 
-        v->external_ip = ntohl(entry->ext_ip);
+        v->external_ip = entry->ext_ip;
         v->last_update = LINK_TIMEOUT;
         v->type_gateway = 1;
         print_debug("Find a free routing table\n");
