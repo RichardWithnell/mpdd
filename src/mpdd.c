@@ -1194,9 +1194,10 @@ handle_gateway_update(
 
     /*Flag the udpate*/
     print_debug("Flagging to update hosts\n");
-    pthread_mutex_lock(&squeue.flag_lock);
+    //pthread_mutex_lock(&squeue.flag_lock);
     squeue.flag = 1;
-    pthread_mutex_unlock(&squeue.flag_lock);
+    //pthread_mutex_unlock(&squeue.flag_lock);
+    print_debug("Update Flagged\n");
 
 
     return SUCCESS;
