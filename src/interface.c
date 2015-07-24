@@ -1289,12 +1289,12 @@ create_load_balance_route(struct nl_sock *sock)
     char n = '0';
 
     if (!(route = rtnl_route_alloc())) {
-        perror("add_default_route() - route alloc failed");
+        perror("create_load_balance_route() - route alloc failed");
         return (struct rtnl_route *)0;
     }
 
     if (!(nexthop = rtnl_route_nh_alloc())) {
-        perror("add_default_route() - nexthop alloc failed");
+        perror("create_load_balance_route() - nexthop alloc failed");
         return (struct rtnl_route *)0;
     }
 
@@ -2020,7 +2020,7 @@ add_default_route(
     struct rtnl_nexthop* nexthop = 0;
     char n = '0';
     int ret = 0;
-    uint32_t gateway = htonl(ip);
+    uint32_t gateway = ip;
 
     print_debug("Add default route - gateway: %s\n", ip_to_str(htonl(gateway)));
 

@@ -281,10 +281,6 @@ main(int argc, char* argv[])
         {0, 0, 0, 0}
     };
 
-    print_debug("TEST HTONL: %lu %lu\n", 0x00000001, htonl(0x00000001));
-    print_debug("TEST NTOHL: %lu %lu\n", 0x00000001, htonl(0x00000001));
-
-
     srand(getpid());
 
     while(1) {
@@ -948,9 +944,10 @@ handle_gateway_update(
     int idx = 0;
     int exists = 0;
 
-    print_debug("Update gateway\n");
     pkt = &(nupdate->pkt);
     addr = &(nupdate->addr);
+
+    print_debug("Update gateway: %d Entries\n", pkt->header->num);
 
     pthread_mutex_lock(&(squeue.iff_list_lock));
     phy = get_iff_network_update(addr->sin_addr.s_addr,
@@ -1036,7 +1033,7 @@ handle_gateway_update(
 
         free_table = find_free_routing_table(sock);
         if(free_table < 0 ) {
-            print_debug("No more free routing tables\n");
+            print_error("No more free routing tables\n");
             continue;
         }
 
@@ -1052,8 +1049,8 @@ handle_gateway_update(
         print_debug("Added virtual interface %p\n", v);
 
         if(!v) {
-            print_debug("Failed to add virtual interface\n");
-            return FAILURE;
+            print_error("Failed to add virtual interface\n");
+            continue;
         }
 
         print_debug("External IP: %s\n", ip_to_str(entry->ext_ip));
@@ -1170,7 +1167,7 @@ handle_gateway_update(
             if(res < 0){
                 print_error("Failed to add default route: %d\n", res);
                 pthread_mutex_unlock(&(squeue.iff_list_lock));
-                return FAILURE;
+                continue;
             }
         }
         pthread_mutex_unlock(&(squeue.iff_list_lock));
