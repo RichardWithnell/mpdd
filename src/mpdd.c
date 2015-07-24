@@ -43,8 +43,8 @@
 #include "util.h"
 #include "resource_interface.h"
 
-#define ENABLE_HEARTBEAT 1
-#define ENABLE_LINK_TIMEOUT 1
+#define ENABLE_HEARTBEAT 0
+#define ENABLE_LINK_TIMEOUT 0
 #define BACKUP_LINK_SUPPORT 1
 #define ENABLE_LOAD_BALANCE 0
 
@@ -285,7 +285,7 @@ main(int argc, char* argv[])
     print_debug("TEST NTOHL: %lu %lu\n", 0x00000001, htonl(0x00000001));
 
 
-    srand(time(0));
+    srand(getpid());
 
     while(1) {
         int option_index = 0;

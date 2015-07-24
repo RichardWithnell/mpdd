@@ -55,8 +55,6 @@ get_iff_network_update(uint32_t sender_ip, List* iff_list)
         struct physical_interface* iff = item->data;
 
         if (iff->address) {
-            print_debug("SENDER: %s\n", ip_to_str(htonl(sender_ip)));
-            print_debug("SENDER: %s\n", ip_to_str(htonl(sender_ip)));
             if ((sender_ip & iff->netmask) == (iff->address & iff->netmask)) {
                 return iff;
             }

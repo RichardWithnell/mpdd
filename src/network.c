@@ -221,7 +221,7 @@ void* recv_broadcast(struct send_queue* squeue)
 
                 deserialize_packet(buff, &pkt);
 
-                //print_packet(pkt);
+                print_packet(pkt);
 
                 if (!pkt) {
                     print_debug("Failed to deserialize packet\n");
@@ -281,6 +281,8 @@ void* recv_broadcast(struct send_queue* squeue)
                     pthread_mutex_unlock(mon->lock);
                     print_debug("sem_post\n");
                     sem_post(mon->barrier);
+                    print_debug("sem_posted\n");
+
                 } else if (pkt->header->type == MPD_HDR_REQUEST) {
                     print_debug("Found request packet\n");
                     #ifdef EVAL
