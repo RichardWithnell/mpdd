@@ -608,8 +608,7 @@ main(int argc, char* argv[])
                     if(is_virtual_route(route, virt_list)){
                         pthread_mutex_unlock(&(squeue.iff_list_lock));
 
-                        print_debug("Update Route -\
-                            Add RT (Not physical, move on)\n");
+                        print_debug("Update Route - Add RT (Not physical, move on)\n");
                         goto LOOP_END;
                     } else {
                         pthread_mutex_unlock(&(squeue.iff_list_lock));
@@ -1072,7 +1071,7 @@ handle_gateway_update(
         print_debug("Find a free routing table\n");
         v->table = free_table;
         print_debug("\tAssigned - %u\n", v->table);
-        create_rule_for_gw(sock, (struct interface*)v, v->table);
+        //create_rule_for_gw(sock, (struct interface*)v, v->table);
         item = (Litem*)malloc(sizeof(Litem));
         if (!item) {
             errno = ENOMEM;
@@ -1138,8 +1137,9 @@ handle_gateway_update(
         */
 
         create_aliases_for_gw(sock, iff_list, virt_list, (struct interface*)v);
-        create_rules_for_gw(sock, virt_list, (struct interface*)v);
-        print_debug("Create the routing table for virtual gateway\n");
+        //create_rules_for_gw(sock, virt_list, (struct interface*)v);
+        create_rule_for_gw(sock, (struct interface*)v, v->table);
+        print_debug("Create the routing table for virtual gateway: %d\n", v->table);
         //create_routing_table(sock, (struct interface*)v);
         create_routing_table_default_route(sock,
             (struct interface*)v,

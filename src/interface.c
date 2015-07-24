@@ -503,13 +503,31 @@ add_addr(
             v->netmask = ntohl((0xffffffff >> (32 - prefix)) << (32 - prefix));
         }
 
+        /*
+        TODO: v->out->super.ifidx isnt always right if the exit is also a virtual gateway.
+        */
+
         if (p->diss) {
-            print_debug("Added address to virtual list, find gateway\n");
-            create_rule_for_gw(sock, (struct interface*)v, v->out->super.ifidx);
+            print_debug("Added address to virtual list, find gateway: Table: %d\n", v->table);
+
+            if(v->table){
+                create_rule_for_gw(sock, (struct interface*)v, v->table);
+            } else {
+                create_rule_for_gw(sock, (struct interface*)v,
+                    v->out->super.ifidx);
+            }
         }
 
-        create_routing_table_subnet_route(sock,
-            (struct interface*)v, v->attach->super.ifidx, v->out->super.ifidx);
+        print_debug("Create Routing Table Subnet: Table: %d\n", v->table);
+
+        if(v->table){
+            create_routing_table_subnet_route(sock,
+                (struct interface*)v, v->attach->super.ifidx, v->table);
+        } else {
+            create_routing_table_subnet_route(sock,
+                (struct interface*)v, v->attach->super.ifidx,
+                    v->out->super.ifidx);
+        }
 
         if(!v->external_ip) {
             v->external_ip = v->out->external_ip;
@@ -771,7 +789,9 @@ add_virt_for_diss(struct nl_sock* sock,
                   List* iff_list,
                   List* virt_list)
 {
+    print_debug("\n");
     if(!phy->diss) {
+        print_debug("Not a diss interface, exit.\n");
         return 0;
     }
 
@@ -785,11 +805,12 @@ add_virt_for_diss(struct nl_sock* sock,
                                                        phy,
                                                        (struct interface*)p,
                                                        virt_list);
-
+            print_debug("Alias Created\n");
             create_rule_for_gw(sock, (struct interface*)v, v->table);
         }
     }
 
+    print_verb("Success\n");
     return 0;
 }
 
@@ -1739,10 +1760,8 @@ create_aliases_for_gw(
             }
         }
 
-
-
-
         if (iff->diss) {
+            print_debug("Creating Alias for Phys\n");
             create_alias(sock, iff, p, virt_list);
         }
     }
@@ -1917,11 +1936,11 @@ create_rule_for_gw(
 
 
     if(iff->type == PHYSICAL_TYPE){
-        print_debug("Creating a rule for a physical interface\n");
+        print_debug("Creating a rule for a physical interface: Table %d\n", ifidx);
         ip = ((struct physical_interface*)iff)->address
             & ((struct physical_interface*)iff)->netmask;
     } else {
-        print_debug("Creating a rule for a virtual interface\n");
+        print_debug("Creating a rule for a virtual interface: Table %d\n", ifidx);
         ip = ((struct virtual_interface*)iff)->address
             & ((struct virtual_interface*)iff)->netmask;
     }
@@ -1929,7 +1948,7 @@ create_rule_for_gw(
     if (ip) {
         if (!(src = nl_addr_build(AF_INET, &ip, sizeof(ip)))) {
             perror(
-                "create_rules_for_gw() - \
+                "create_rule_for_gw() - \
                 Failed building nl address for routing rule");
             return FAILURE;
         }
@@ -1937,13 +1956,13 @@ create_rule_for_gw(
         nl_addr_set_prefixlen(src, 24);
 
         if (!(rule = rtnl_rule_alloc())) {
-            perror("create_rules_for_gw() - Failed allocating routing rule");
+            perror("create_rule_for_gw() - Failed allocating routing rule");
             return FAILURE;
         }
         rtnl_rule_set_family(rule, AF_INET);
         if (rtnl_rule_set_src(rule, src)) {
             perror(
-                "create_rules_for_gw() - \
+                "create_rule_for_gw() - \
                 Failed setting src address for rule");
             return FAILURE;
         }
@@ -1953,7 +1972,7 @@ create_rule_for_gw(
         rtnl_rule_set_action(rule, FR_ACT_TO_TBL);
 
         if (rtnl_rule_add(sock, rule, 0)) {
-            perror("create_rules_for_gw() - Failed to add rule");
+            perror("create_rule_for_gw() - Failed to add rule");
             return FAILURE;
         }
 
@@ -1987,15 +2006,15 @@ create_rules_for_gw(struct nl_sock* sock, List* list, struct interface* gw)
 
         if (gw->type == PHYSICAL_TYPE) {
             if (iff->attach->diss && gw->ifidx == iff->out->super.ifidx) {
-                print_debug("Phys Name: %s\n", iff->super.ifname);
+                print_debug("Phys Name: %s (Table: %d)\n", iff->super.ifname, gw->ifidx);
                 create_rule_for_gw(sock, (struct interface*)iff, gw->ifidx);
             }
         } else {
-            struct virtual_interface* p = (struct virtual_interface*)gw;
+            struct virtual_interface* v = (struct virtual_interface*)gw;
 
-            if (iff->attach->diss) {
-                print_debug("Virt Name: %s\n", iff->super.ifname);
-                create_rule_for_gw(sock, (struct interface*)iff, p->table);
+            if (iff->attach->diss && gw->ifidx == iff->out->super.ifidx) {
+                print_debug("Virt Name: %s (Table: %d)\n", iff->super.ifname, v->table);
+                create_rule_for_gw(sock, (struct interface*)iff, v->table);
             }
         }
     }
