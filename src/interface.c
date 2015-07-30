@@ -339,6 +339,7 @@ delete_link(struct rtnl_link* link, List* iff, List* virt, List* ignore_list)
     for (j = list_size(iff); j--; ) {
         struct physical_interface* p = (struct physical_interface*)list_get(iff, j)->data;
         if( p && (idx == p->super.ifidx)) {
+            print_debug("Deleting Link\n");
             list_remove(iff, j);
             free(p);
         }
@@ -915,6 +916,7 @@ int delete_route_from_physical(List* l, uint32_t route)
 
         if (iff->gateway == route) {
             iff->gateway = 0;
+            iff->external_ip = 0;
 
 #ifdef EVAL
             struct timespec monotime;
@@ -997,9 +999,13 @@ delete_rules_by_gw(struct nl_sock* sock, List* list, uint32_t gw)
         struct virtual_interface* iff = item->data;
         print_debug("Comparing: %zu and %zu\n", iff->gateway, gw);
         if (iff->gateway == gw) {
-            print_debug("delete rules with address: ");
+            print_debug("delete rules with address: %s\n", ip_to_str(htonl(iff->address)));
             //print_ip(iff->address);
-            delete_rule(sock, iff->address, iff->netmask, iff->table);
+            if(iff->table == 0){
+                delete_rule(sock, iff->address, iff->netmask, iff->out->super.ifidx);
+            } else {
+                delete_rule(sock, iff->address, iff->netmask, iff->table);
+            }
         }
     }
 
@@ -1027,32 +1033,50 @@ int delete_virtual_by_gw(List* list, uint32_t gw)
         if (iff->gateway == gw) {
             Litem* tmpitem = list_remove(list, i);
 
+            print_debug("Found matching virt interface\n");
+
             if(iff->attach) {
                 List* l = iff->attach->virt_list;
+
+                print_debug("Found attached interface: %s\n", iff->attach->super.ifname);
+
                 if(!l) {
-                    break;
+                    print_debug("No virt list for interface\n");
+                    continue;
                 }
                 for (j = list_size(l); j--; ) {
                     struct virtual_interface* v = (list_get(l, j))->data;
                     if(v == iff) {
+                        print_debug("Removing from attach virt_list\n");
                         list_remove(l, j);
                         break;
                     }
                 }
+            } else {
+                print_debug("No attached interface found for virt\n");
             }
 
             if(iff->out) {
                 List* l = iff->out->virt_list;
+
+                print_debug("Found attached interface: %s\n", iff->out->super.ifname);
+
+
                 if(!l) {
-                    break;
+                    print_debug("No virt list for interface\n");
+                    continue;
                 }
                 for (j = list_size(l); j--; ) {
                     struct virtual_interface* v = (list_get(l, j))->data;
                     if(v == iff) {
+                        print_debug("Removing from out virt_list\n");
+
                         list_remove(l, j);
                         break;
                     }
                 }
+            } else {
+                print_debug("No out interface found for virt\n");
             }
 
             free(tmpitem->data);
@@ -1164,6 +1188,7 @@ delete_route(
     struct rtnl_nexthop* nexthop = 0;
     struct nl_addr* gw = 0;
     uint32_t binary_gw = 0;
+    Litem *item = (Litem*)0;
 
     nexthop = rtnl_route_nexthop_n(route, 0);
     ifidx = rtnl_route_nh_get_ifindex(nexthop);
@@ -1171,9 +1196,23 @@ delete_route(
     binary_gw = *(uint32_t*)nl_addr_get_binary_addr(gw);
 
     print_debug("Delete Route: %s\n", ip_to_str(htonl(binary_gw)));
+    delete_rules_by_gw(sock, virt_list, binary_gw);
+
+    list_for_each(item, iff_list){
+        struct physical_interface *phys = (struct physical_interface*)item->data;
+        if(phys->gateway == binary_gw){
+            delete_rule(sock, phys->address, phys->netmask, phys->table);
+        }
+    }
+
+    list_for_each(item, virt_list){
+        struct virtual_interface *virt = (struct virtual_interface*)item->data;
+        if(virt->gateway == binary_gw){
+            delete_virtual_address(sock, virt->address, virt->attach->super.ifidx);
+        }
+    }
 
     delete_route_from_physical(iff_list, binary_gw);
-    delete_rules_by_gw(sock, virt_list, binary_gw);
     delete_virtual_by_gw(virt_list, binary_gw);
     flush_table(sock, ifidx);
 

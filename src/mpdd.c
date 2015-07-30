@@ -208,9 +208,11 @@ int is_virtual_route(struct rtnl_route *route, List * virt_list)
         return 0;
     }
 
+    print_debug("Checking if %s is a virtual route\n", ip_to_str(htonl(binary_gw)));
+
     list_for_each(vitem, virt_list){
         struct virtual_interface *virt = (struct virtual_interface*)vitem->data;
-        if(virt->gateway == binary_gw){
+        if((virt->gateway == binary_gw) && (virt->out == virt->attach)){
             return 1;
         }
     }
@@ -501,6 +503,7 @@ main(int argc, char* argv[])
                     print_debug("Update Link - Del Link\n");
                     pthread_mutex_lock(&(squeue.iff_list_lock));
                     if(!delete_link(link, iff_list, virt_list, ignore_list)) {
+
                         pthread_mutex_unlock(&(squeue.iff_list_lock));
                         goto LOOP_END;
                     }
@@ -603,7 +606,7 @@ main(int argc, char* argv[])
                             print_debug("Update Route - Priority not 0\n");
                         }
                     } else {
-                        print_debug("Update Route - Add loadbalance\n");
+                        print_debug("Update Route - not loadbalance\n");
                     }
                     if(is_virtual_route(route, virt_list)){
                         pthread_mutex_unlock(&(squeue.iff_list_lock));
@@ -630,7 +633,7 @@ main(int argc, char* argv[])
                             print_debug("Update Route - Priority not 0\n");
                         }
                     } else {
-                        print_debug("Update Route - Add loadbalance\n");
+                        print_debug("Update Route - not loadbalance\n");
                     }
                     if(is_virtual_route(route, virt_list)){
                         pthread_mutex_unlock(&(squeue.iff_list_lock));
