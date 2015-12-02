@@ -10,7 +10,7 @@ BEAUTIFY=uncrustify ~/.uncrustify.cfg
 CFLAGS+= -g -Wall -DUSE_LIBCONFIG -DGATEWAY_IS_EXT
 
 ifndef ARCH
-	ARCH:=$(shell uname -m)
+    ARCH:=$(shell uname -m)
 endif
 
 ifeq ($(ARCH),sim)
