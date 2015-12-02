@@ -46,12 +46,12 @@
 #define ENABLE_HEARTBEAT 0
 #define ENABLE_LINK_TIMEOUT 0
 #define BACKUP_LINK_SUPPORT 1
-#define ENABLE_LOAD_BALANCE 0
+#define ENABLE_LOAD_BALANCE 1
 
 static const int MAX_DEPTH = 255;
-static const int HEART_BEAT_TIME = 10;
-static const int LINK_CHECK_TIME = 2;
-static const int LINK_TIMEOUT = 60;
+static const int HEART_BEAT_TIME = 60;
+static const int LINK_CHECK_TIME = 60;
+static const int LINK_TIMEOUT = 120;
 
 static const char DEF_CONFIG_FILE[32] = "/etc/mpd/mpdd_simple.conf";
 
@@ -89,11 +89,12 @@ struct send_queue squeue;
 List* iff_list = 0;
 List* virt_list = 0;
 
+/*
 static int lookup_weight(uint32_t ip)
 {
     return 1;
 }
-
+*/
 
 /*
  *
@@ -618,9 +619,14 @@ main(int argc, char* argv[])
                         print_debug("Update Route - Add RT\n");
                     }
 
-                    pthread_mutex_lock(&(squeue.iff_list_lock));
-                    add_route(sock, route, iff_list, virt_list);
-                    pthread_mutex_unlock(&(squeue.iff_list_lock));
+                    if(LOAD_BALANCING && rtnl_route_get_priority(route) == 0){
+                        print_debug("Adding local load balanced route, dont create new abstraction\n");
+                    } else {
+                        pthread_mutex_lock(&(squeue.iff_list_lock));
+                        add_route(sock, route, iff_list, virt_list);
+                        pthread_mutex_unlock(&(squeue.iff_list_lock));
+                    }
+
 
                     print_debug("Update Route - Completed\n");
                 } else if(u->action == DEL_RT) {
@@ -644,9 +650,15 @@ main(int argc, char* argv[])
                         pthread_mutex_unlock(&(squeue.iff_list_lock));
                         print_debug("Update Route - Del RT\n");
                     }
-                    pthread_mutex_lock(&(squeue.iff_list_lock));
-                    delete_route(sock, route, iff_list, virt_list);
-                    pthread_mutex_unlock(&(squeue.iff_list_lock));
+
+                    if(LOAD_BALANCING && rtnl_route_get_priority(route) == 0){
+                        print_debug("Deleting local load balanced route, dont delete abstraction\n");
+                    } else {
+                        pthread_mutex_lock(&(squeue.iff_list_lock));
+                        delete_route(sock, route, iff_list, virt_list);
+                        pthread_mutex_unlock(&(squeue.iff_list_lock));
+                    }
+
                     /*
                      * Tell the network thread
                      * there was an update to the list
