@@ -49,9 +49,9 @@
 #define ENABLE_LOAD_BALANCE 1
 
 static const int MAX_DEPTH = 255;
-static const int HEART_BEAT_TIME = 60;
-static const int LINK_CHECK_TIME = 60;
-static const int LINK_TIMEOUT = 120;
+static const int HEART_BEAT_TIME = 500000;
+static const int LINK_CHECK_TIME = 500000;
+static const int LINK_TIMEOUT = 1000000;
 
 static const char DEF_CONFIG_FILE[32] = "/etc/mpd/mpdd_simple.conf";
 
@@ -133,7 +133,7 @@ static void* check_timeout(void* data)
         }
         pthread_mutex_unlock(&squeue->iff_list_lock);
 
-        sleep(LINK_CHECK_TIME);
+        usleep(LINK_CHECK_TIME);
     }
 
     return (void*)0;
@@ -159,7 +159,7 @@ static void* flag_heartbeat(void* data)
         print_verb("Send Heartbeat\n");
         pthread_mutex_unlock(&squeue->flag_lock);
 
-        sleep(HEART_BEAT_TIME);
+        usleep(HEART_BEAT_TIME);
     }
 
     return (void*)0;
