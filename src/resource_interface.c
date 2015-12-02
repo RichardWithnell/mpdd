@@ -42,7 +42,7 @@ int create_type_file(uint32_t ip, char *type, int resource_location)
             return -1;
     }
     ensure_dir_exists(folder_path);
-    sprintf(file_path, "%s%lu_type", folder_path, ip);
+    sprintf(file_path, "%s%zu_type", folder_path, ip);
     fp = fopen(file_path, "w+");
     fprintf(fp, "%s\n", type);
     fclose(fp);
