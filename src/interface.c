@@ -29,6 +29,8 @@
 
 #define LOOPBACK "lo"
 
+int delete_virtual_address(struct nl_sock* sock, unsigned int ip, int ifidx);
+
 int delete_rules_by_gw(struct nl_sock* sock, List* list, uint32_t gw);
 int delete_virtual_by_phy_addr(List* list, uint32_t gw);
 struct virtual_interface* create_alias(struct nl_sock* sock,
@@ -862,7 +864,7 @@ add_route(struct nl_sock* sock,
     p->gateway = binary_gw;
 
     p->metric = rtnl_route_get_priority(route);
-    printf("Set link metric to: %u\n", p->metric);
+    print_debug("Set link metric to: %u\n", p->metric);
 
     print_debug("Set Physical Gateway (%s) to %s\n",
                 p->super.ifname,
@@ -1201,7 +1203,7 @@ delete_route(
     list_for_each(item, iff_list){
         struct physical_interface *phys = (struct physical_interface*)item->data;
         if(phys->gateway == binary_gw){
-            delete_rule(sock, phys->address, phys->netmask, phys->table);
+            delete_rule(sock, phys->address, phys->netmask, phys->super.ifidx);
         }
     }
 
@@ -1549,9 +1551,9 @@ add_load_balance_route_from_rtnl(struct nl_sock *sock, struct rtnl_route *route)
         uint32_t ifidx = rtnl_route_nh_get_ifindex(nh);
         uint32_t gateway = *(uint32_t*)nl_addr_get_binary_addr(gw);
         #ifdef POLICY_MODULE
-        uint32_t weight = lookup_weight(gateway, ifidx);
+        //uint32_t weight = lookup_weight(gateway, ifidx);
         #else
-        uint32_t weight = 1;
+        //uint32_t weight = 1;
         #endif
         return add_load_balance_route(sock, gateway, ifidx, 1);
     } else {
@@ -1577,9 +1579,9 @@ delete_load_balance_route_from_rtnl(struct nl_sock *sock, struct rtnl_route *rou
         uint32_t ifidx = rtnl_route_nh_get_ifindex(nh);
         uint32_t gateway = *(uint32_t*)nl_addr_get_binary_addr(gw);
         #ifdef POLICY_MODULE
-        uint32_t weight = lookup_weight(gateway, ifidx);
+        //uint32_t weight = lookup_weight(gateway, ifidx);
         #else
-        uint32_t weight = 1;
+        //uint32_t weight = 1;
         #endif
         return delete_load_balance_route(sock, gateway, ifidx, 1);
     } else {
