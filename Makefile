@@ -14,8 +14,8 @@ ifndef ARCH
 endif
 
 ifeq ($(ARCH),sim)
-	CFLAGS += -DDCE_NS3_FIX -fPIC -U_FORTIFY_SOURCE -fstack-protector-all -Wstack-protector -fno-omit-frame-pointer
-	OPTS = -pie -rdynamic
+    CFLAGS += -DDCE_NS3_FIX -fPIC -U_FORTIFY_SOURCE -fstack-protector-all -Wstack-protector -fno-omit-frame-pointer
+    OPTS = -pie -rdynamic
 endif
 
 SRC_PATH=src/
