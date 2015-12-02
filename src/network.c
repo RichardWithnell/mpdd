@@ -26,6 +26,31 @@
 
 char host_name[32];
 
+/*
+ *
+ */
+struct physical_interface*
+get_iff_for_sender(uint32_t sender_ip, List* iff_list)
+{
+    if (!sender_ip) {
+        print_debug("sender IP NULL\n");
+        return (struct physical_interface*)FAILURE;
+    }
+    Litem *item;
+    list_for_each(item, iff_list){
+        struct physical_interface* iff = item->data;
+
+        if (iff->address) {
+            if ((sender_ip & iff->netmask) == (iff->address & iff->netmask)) {
+                return iff;
+            }
+        }
+    }
+
+    return (struct physical_interface*)0;
+}
+
+
 void *
 send_request_thread(struct physical_interface *phy, int sock)
 {
@@ -33,6 +58,38 @@ send_request_thread(struct physical_interface *phy, int sock)
         send_request_broadcast(phy, sock, MPD_HDR_REQUEST);
     }
     return 0;
+}
+
+struct req_response_struct {
+    List *iff_list;
+    int socket;
+    int *send_response;
+    pthread_mutex_t response_lock;
+    pthread_mutex_t *list_lock;
+};
+
+void *
+respond_request_thread(void * args)
+{
+    struct req_response_struct *rrs = (struct req_response_struct*)0;
+
+    if(!args){
+        return (void*)0;
+    }
+
+    usleep(5000);
+
+    rrs = (struct req_response_struct *)args;
+
+    pthread_mutex_lock(rrs->list_lock);
+    send_update_broadcast(rrs->iff_list, rrs->socket);
+    pthread_mutex_unlock(rrs->list_lock);
+
+    pthread_mutex_lock(&(rrs->response_lock));
+    *(rrs->send_response) = 0;
+    pthread_mutex_unlock(&(rrs->response_lock));
+
+    return (void*)0;
 }
 
 /*
@@ -105,11 +162,21 @@ void* recv_broadcast(struct send_queue* squeue)
     unsigned char* buff = 0;
     socklen_t fromlen;
 
+    struct req_response_struct rrs;
+
+    pthread_t send_response_thread;
+
     fd_set wfds;
     fd_set rfds;
     fd_set efds;
 
     print_debug("Thread started\n");
+
+
+    if (pthread_mutex_init(&(rrs.response_lock), NULL) != 0) {
+        print_error("response_lock mutex init failed\n");
+        return (void*)FAILURE;
+    }
 
     if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
         /*Cleanup*/
@@ -150,6 +217,13 @@ void* recv_broadcast(struct send_queue* squeue)
 
     mon = squeue->mon_data;
     print_debug("Entering main loop\n");
+
+
+    rrs.socket = sock;
+    rrs.send_response = 0;
+    rrs.iff_list = squeue->iff_list;
+
+    rrs.list_lock = &(squeue->flag_lock);
 
     while (squeue->running) {
         struct mpdpacket* pkt = 0;
@@ -226,7 +300,7 @@ void* recv_broadcast(struct send_queue* squeue)
                     print_debug("Failed to deserialize packet\n");
                     continue;
                 }
-                
+
                 print_packet(pkt);
 
                 if (pkt->header->type == MPD_HDR_UPDATE) {
@@ -285,6 +359,9 @@ void* recv_broadcast(struct send_queue* squeue)
                     print_debug("sem_posted\n");
 
                 } else if (pkt->header->type == MPD_HDR_REQUEST) {
+                    uint8_t *send_response = (uint8_t*)0;
+                    struct physical_interface *resp_phy = (struct physical_interface *)0;
+
                     print_debug("Found request packet\n");
                     #ifdef EVAL
                     struct timespec monotime;
@@ -295,11 +372,32 @@ void* recv_broadcast(struct send_queue* squeue)
                         (long long)monotime.tv_sec,
                         (long)monotime.tv_nsec);
                     #endif
-                    pthread_mutex_lock(&(squeue->flag_lock));
-                    print_debug("Sending update packet onto link\n");
+                    /*Old Queue Attempt, hits write select too fast to be useful*/
+                    //pthread_mutex_lock(&(squeue->flag_lock));
+                    //print_debug("Sending update packet onto link\n");
                     //send_update_broadcast(squeue->iff_list, sock);
-                    squeue->flag = 1;
+                    //squeue->flag = 1;
+
+                    /*New queue attempt*/
+
+
+                    pthread_mutex_lock(&(squeue->flag_lock));
+                    resp_phy = get_iff_for_sender(saddr.sin_addr.s_addr,
+                        squeue->iff_list);
+                    rrs.send_response = &(resp_phy->request_received);
                     pthread_mutex_unlock(&(squeue->flag_lock));
+
+                    pthread_mutex_lock(&(rrs.response_lock));
+                    if(*(rrs.send_response) == 0){
+                        *(rrs.send_response) = 1;
+                        pthread_mutex_unlock(&(rrs.response_lock));
+                        pthread_create(&send_response_thread, NULL,
+                            (void*)&respond_request_thread, (void*)&rrs);
+                    } else {
+                        pthread_mutex_unlock(&(rrs.response_lock));
+                    }
+
+                    //pthread_mutex_unlock(&(squeue->flag_lock));
                 } else if (pkt->header->type == MPD_HDR_HEARTBEAT) {
                     print_debug("Found heartbeat packet\n");
 
@@ -490,6 +588,60 @@ send_request_broadcast(struct physical_interface* iff, int sock, int hflag)
     return SUCCESS;
 }
 
+int
+send_single_update_broadcast(struct physical_interface *iff, int sock)
+{
+    int ret = 0;
+
+    if (iff->diss) {
+        struct mpdpacket* packet;
+        unsigned char* data = 0;
+        unsigned int len = 0;
+        int gws = 0;
+
+        print_debug("Create Packet for %s\n", iff->super.ifname);
+
+        #ifdef EVAL
+        struct timespec monotime;
+        clock_gettime(CLOCK_REALTIME, &monotime);
+        print_eval("SU:%s:%s:%lld.%.9ld\n",
+            host_name,
+            ip_to_str(ntohl(iff->address)),
+            (long long)monotime.tv_sec,
+            (long)monotime.tv_nsec);
+        #endif
+
+        if ((gws = create_update_packet(iff, &packet)) < 0) {
+            print_error("Create Packet Failed: %d\n", gws);
+            return -1;
+        }
+
+        len = serialize_packet(packet, &data);
+        print_debug("Created serialized packet: length %d bytes\n", len);
+
+        /*
+        struct mpdpacket* test_packet;
+        deserialize_packet(data, &test_packet);
+        print_packet(test_packet);
+        free(test_packet);
+        */
+        free(packet);
+
+        memset(&(iff->saddr), '0', sizeof(struct sockaddr_in));
+        iff->saddr.sin_family = AF_INET;
+        iff->saddr.sin_port = (in_port_t)htons(MPD_BROADCAST_PORT);
+        iff->saddr.sin_addr.s_addr = iff->broadcast;
+
+        ret = do_broadcast(iff, sock, data, len);
+        if(ret < 0) {
+            print_error("Broadcast failed\n");
+        }
+        free(data);
+    }
+
+    return SUCCESS;
+}
+
 /*
  *
  */
@@ -498,58 +650,13 @@ send_update_broadcast(List* iff_list, int sock)
 {
     int i = 0;
     int size = 0;
-    int ret = 0;
 
     size = list_size(iff_list);
     print_debug("Sending broadcast of new virtual interface\n");
     for (i = 0; i < size; i++) {
         struct physical_interface* iff =
             (struct physical_interface*)(list_get(iff_list, i))->data;
-        if (iff->diss) {
-            struct mpdpacket* packet;
-            unsigned char* data = 0;
-            unsigned int len = 0;
-            int gws = 0;
-
-            print_debug("Create Packet for %s\n", iff->super.ifname);
-
-            #ifdef EVAL
-            struct timespec monotime;
-            clock_gettime(CLOCK_REALTIME, &monotime);
-            print_eval("SU:%s:%s:%lld.%.9ld\n",
-                host_name,
-                ip_to_str(ntohl(iff->address)),
-                (long long)monotime.tv_sec,
-                (long)monotime.tv_nsec);
-            #endif
-
-            if ((gws = create_update_packet(iff, &packet)) < 0) {
-                print_error("Create Packet Failed: %d\n", gws);
-                continue;
-            }
-
-            len = serialize_packet(packet, &data);
-            print_debug("Created serialized packet: length %d bytes\n", len);
-
-            /*
-            struct mpdpacket* test_packet;
-            deserialize_packet(data, &test_packet);
-            print_packet(test_packet);
-            free(test_packet);
-            */
-            free(packet);
-
-            memset(&(iff->saddr), '0', sizeof(struct sockaddr_in));
-            iff->saddr.sin_family = AF_INET;
-            iff->saddr.sin_port = (in_port_t)htons(MPD_BROADCAST_PORT);
-            iff->saddr.sin_addr.s_addr = iff->broadcast;
-
-            do_broadcast(iff, sock, data, len);
-            if(ret < 0) {
-                print_error("Broadcast failed\n");
-            }
-            free(data);
-        }
+        send_single_update_broadcast(iff, sock);
     }
 
     return SUCCESS;
