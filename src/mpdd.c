@@ -46,7 +46,7 @@
 #define ENABLE_HEARTBEAT 0
 #define ENABLE_LINK_TIMEOUT 0
 #define BACKUP_LINK_SUPPORT 1
-#define ENABLE_LOAD_BALANCE 1
+#define ENABLE_LOAD_BALANCE 0
 
 static const int MAX_DEPTH = 255;
 static const int HEART_BEAT_TIME = 500000;
