@@ -373,30 +373,33 @@ void* recv_broadcast(struct send_queue* squeue)
                         (long)monotime.tv_nsec);
                     #endif
                     /*Old Queue Attempt, hits write select too fast to be useful*/
-                    //pthread_mutex_lock(&(squeue->flag_lock));
-                    //print_debug("Sending update packet onto link\n");
-                    //send_update_broadcast(squeue->iff_list, sock);
-                    //squeue->flag = 1;
+                    pthread_mutex_lock(&(squeue->flag_lock));
+                    print_debug("Sending update packet onto link\n");
+                    send_update_broadcast(squeue->iff_list, sock);
+                    squeue->flag = 1;
 
                     /*New queue attempt*/
-
-
+                    /*
                     pthread_mutex_lock(&(squeue->flag_lock));
                     resp_phy = get_iff_for_sender(saddr.sin_addr.s_addr,
                         squeue->iff_list);
-                    rrs.send_response = &(resp_phy->request_received);
-                    pthread_mutex_unlock(&(squeue->flag_lock));
+                    if(resp_phy){
+                      rrs.send_response = &(resp_phy->request_received);
+                      pthread_mutex_unlock(&(squeue->flag_lock));
 
-                    pthread_mutex_lock(&(rrs.response_lock));
-                    if(*(rrs.send_response) == 0){
-                        *(rrs.send_response) = 1;
-                        pthread_mutex_unlock(&(rrs.response_lock));
-                        pthread_create(&send_response_thread, NULL,
-                            (void*)&respond_request_thread, (void*)&rrs);
+                      pthread_mutex_lock(&(rrs.response_lock));
+                      if(*(rrs.send_response) == 0){
+                          *(rrs.send_response) = 1;
+                          pthread_mutex_unlock(&(rrs.response_lock));
+                          pthread_create(&send_response_thread, NULL,
+                              (void*)&respond_request_thread, (void*)&rrs);
+                      } else {
+                          pthread_mutex_unlock(&(rrs.response_lock));
+                      }
                     } else {
-                        pthread_mutex_unlock(&(rrs.response_lock));
-                    }
 
+                    }
+                    */
                     //pthread_mutex_unlock(&(squeue->flag_lock));
                 } else if (pkt->header->type == MPD_HDR_HEARTBEAT) {
                     print_debug("Found heartbeat packet\n");
