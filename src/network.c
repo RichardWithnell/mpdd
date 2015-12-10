@@ -377,6 +377,7 @@ void* recv_broadcast(struct send_queue* squeue)
                     print_debug("Sending update packet onto link\n");
                     send_update_broadcast(squeue->iff_list, sock);
                     squeue->flag = 1;
+                    pthread_mutex_unlock(&(squeue->flag_lock));
 
                     /*New queue attempt*/
                     /*
@@ -400,7 +401,6 @@ void* recv_broadcast(struct send_queue* squeue)
 
                     }
                     */
-                    //pthread_mutex_unlock(&(squeue->flag_lock));
                 } else if (pkt->header->type == MPD_HDR_HEARTBEAT) {
                     print_debug("Found heartbeat packet\n");
 
