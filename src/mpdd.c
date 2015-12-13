@@ -44,8 +44,8 @@
 #include "resource_interface.h"
 
 #define ENABLE_HEARTBEAT 1
-#define ENABLE_LINK_TIMEOUT 1
-#define BACKUP_LINK_SUPPORT 1
+#define ENABLE_LINK_TIMEOUT 0
+#define BACKUP_LINK_SUPPORT 0
 #define ENABLE_LOAD_BALANCE 0
 
 static const int MAX_DEPTH = 255;
