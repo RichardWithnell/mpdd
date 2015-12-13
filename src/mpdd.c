@@ -43,15 +43,15 @@
 #include "util.h"
 #include "resource_interface.h"
 
-#define ENABLE_HEARTBEAT 0
-#define ENABLE_LINK_TIMEOUT 0
+#define ENABLE_HEARTBEAT 1
+#define ENABLE_LINK_TIMEOUT 1
 #define BACKUP_LINK_SUPPORT 1
 #define ENABLE_LOAD_BALANCE 0
 
 static const int MAX_DEPTH = 255;
 static const int HEART_BEAT_TIME = 500000;
 static const int LINK_CHECK_TIME = 500000;
-static const int LINK_TIMEOUT = 1000000;
+static const int LINK_TIMEOUT = 2000000;
 
 static const char DEF_CONFIG_FILE[32] = "/etc/mpd/mpdd_simple.conf";
 
