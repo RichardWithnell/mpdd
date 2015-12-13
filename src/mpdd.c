@@ -49,9 +49,9 @@
 #define ENABLE_LOAD_BALANCE 0
 
 static const int MAX_DEPTH = 255;
-static const int HEART_BEAT_TIME = 500000;
-static const int LINK_CHECK_TIME = 500000;
-static const int LINK_TIMEOUT = 2000000;
+static const int HEART_BEAT_TIME = 5000000;
+static const int LINK_CHECK_TIME = 5000000;
+static const int LINK_TIMEOUT =    10000000;
 
 static const char DEF_CONFIG_FILE[32] = "/etc/mpd/mpdd_simple.conf";
 
