@@ -596,6 +596,9 @@ add_addr(
         if (!p->broadcast || p->broadcast == p->address) {
             p->broadcast = (p->netmask & p->address) | (~p->netmask);
         }
+
+        p->packet_received = 0;
+
         return (struct interface*)p;
     }
 }

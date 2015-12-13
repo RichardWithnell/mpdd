@@ -875,7 +875,6 @@ delete_old_routes(
         return FAILURE;
     }
 
-    phy->packet_received = 1;
     pthread_mutex_unlock(&(squeue.iff_list_lock));
 
     if(!phy->virt_list) {
@@ -974,6 +973,8 @@ handle_gateway_update(
     pthread_mutex_unlock(&(squeue.iff_list_lock));
 
     host_id = get_host_id(phy);
+
+    phy->packet_received = 1;
 
     delete_old_routes(nupdate, virt_list, iff_list, sock, host_id, squeue);
 

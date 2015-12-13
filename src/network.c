@@ -353,10 +353,12 @@ void* recv_broadcast(struct send_queue* squeue)
                     pthread_mutex_lock(mon->lock);
                     queue_put(mon->queue, item);
                     print_debug("Unlock monitor mutex\n");
+                    squeue->request_flag = 0;
                     pthread_mutex_unlock(mon->lock);
                     print_debug("sem_post\n");
                     sem_post(mon->barrier);
                     print_debug("sem_posted\n");
+
 
                 } else if (pkt->header->type == MPD_HDR_REQUEST) {
                     uint8_t *send_response = (uint8_t*)0;
@@ -401,18 +403,6 @@ void* recv_broadcast(struct send_queue* squeue)
 
                     }
                     */
-                } else if (pkt->header->type == MPD_HDR_HEARTBEAT) {
-                    print_debug("Found heartbeat packet\n");
-
-                    pthread_mutex_lock(&(squeue->flag_lock));
-                    //print_debug("Sending update packet onto link\n");
-                    /*Mark to send, if we fall into the receive loop multiple
-                    times only send one response*/
-                    //squeue->flag = 1;
-                    //send_update_broadcast(squeue->iff_list, sock);
-                    pthread_mutex_unlock(&(squeue->flag_lock));
-                } else {
-                    print_debug("Unknown packet header type\n");
                 }
             } else if (FD_ISSET(sock, &wfds)) {
                 pthread_mutex_lock(&(squeue->flag_lock));
@@ -463,27 +453,8 @@ void* recv_broadcast(struct send_queue* squeue)
                         free(qitem);
                     }
                 }
-                squeue->request_flag = 0;
                 pthread_mutex_unlock(&(squeue->flag_lock));
 
-                pthread_mutex_lock(&(squeue->flag_lock));
-
-                /*Send out heartbeat, interfaces are still here.*/
-                if (squeue->heartbeat_flag) {
-                    Qitem* qitem;
-                    while ((qitem = queue_get(&(squeue->request_queue)))) {
-                        print_debug("Request flag set\n");
-
-                        send_request_broadcast(
-                            (struct physical_interface*)qitem->data,
-                            sock, MPD_HDR_HEARTBEAT);
-
-                        free(qitem);
-                    }
-                    squeue->heartbeat_flag = 0;
-                }
-
-                pthread_mutex_unlock(&(squeue->flag_lock));
 #ifdef DCE_NS3_FIX
                 print_verb("NS3FixSleep(1)\n");
                 usleep(1000);
